@@ -4,6 +4,7 @@ import kfp.compiler
 # Include here pipelines you want to compile
 from .kube_exp_ridhwan import kube_exp_ridhwan
 from .add_randoms import main_pipeline as add_randoms
+from .s3_bucket_test import pipeline as s3_pipeline
 
 
 PIPELINES_LOCATION = "pipelines"
@@ -11,7 +12,7 @@ IS_ROOT = os.path.exists("src")
 os.makedirs(PIPELINES_LOCATION, exist_ok=True)
 
 def compile_all():
-    for pipeline in [kube_exp_ridhwan, add_randoms]:
+    for pipeline in [kube_exp_ridhwan, add_randoms, s3_pipeline]:
         compile(pipeline)
 
 def compile(exp: Callable):

@@ -1,0 +1,310 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: pipeline-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-22T19:43:17.631977',
+    pipelines.kubeflow.org/pipeline_spec: '{"inputs": [{"name": "access_key"}, {"name":
+      "secret_key"}, {"default": "5", "name": "epochs", "optional": true, "type":
+      "Integer"}], "name": "Pipeline"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12}
+spec:
+  entrypoint: pipeline
+  templates:
+  - name: connect-s3
+    container:
+      args: [--access-key, '{{inputs.parameters.access_key}}', --secret-key, '{{inputs.parameters.secret_key}}']
+      command:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'boto3' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+        --no-warn-script-location 'boto3' --user) && "$0" "$@"
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def connect_s3(access_key, secret_key):
+            import boto3
+            def list_bucket_dir(bucket):
+                objects = [x.key for x in bucket.objects.all()]
+                print(objects)
+                return objects
+
+            session = boto3.Session(
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+            )
+            _s3 = session.resource('s3')
+            bucket = _s3.Bucket("kubeflow-poc-saal")
+            list_bucket_dir(bucket)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Connect s3', description='')
+        _parser.add_argument("--access-key", dest="access_key", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--secret-key", dest="secret_key", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = connect_s3(**_parsed_args)
+      image: python:slim-buster
+    inputs:
+      parameters:
+      - {name: access_key}
+      - {name: secret_key}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--access-key", {"inputValue": "access_key"}, "--secret-key",
+          {"inputValue": "secret_key"}], "command": ["sh", "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''boto3'' || PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''boto3'' --user)
+          && \"$0\" \"$@\"", "sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\"
+          > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def connect_s3(access_key,
+          secret_key):\n    import boto3\n    def list_bucket_dir(bucket):\n        objects
+          = [x.key for x in bucket.objects.all()]\n        print(objects)\n        return
+          objects\n\n    session = boto3.Session(\n        aws_access_key_id=access_key,\n        aws_secret_access_key=secret_key,\n    )\n    _s3
+          = session.resource(''s3'')\n    bucket = _s3.Bucket(\"kubeflow-poc-saal\")\n    list_bucket_dir(bucket)\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Connect s3'', description='''')\n_parser.add_argument(\"--access-key\",
+          dest=\"access_key\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--secret-key\",
+          dest=\"secret_key\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = connect_s3(**_parsed_args)\n"],
+          "image": "python:slim-buster"}}, "inputs": [{"name": "access_key"}, {"name":
+          "secret_key"}], "name": "Connect s3"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"access_key": "{{inputs.parameters.access_key}}",
+          "secret_key": "{{inputs.parameters.secret_key}}"}'}
+  - name: connect-s3-2
+    container:
+      args: [--access-key, '{{inputs.parameters.access_key}}', --secret-key, '{{inputs.parameters.secret_key}}']
+      command:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'boto3' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+        --no-warn-script-location 'boto3' --user) && "$0" "$@"
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def connect_s3(access_key, secret_key):
+            import boto3
+            def list_bucket_dir(bucket):
+                objects = [x.key for x in bucket.objects.all()]
+                print(objects)
+                return objects
+
+            session = boto3.Session(
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+            )
+            _s3 = session.resource('s3')
+            bucket = _s3.Bucket("kubeflow-poc-saal")
+            list_bucket_dir(bucket)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Connect s3', description='')
+        _parser.add_argument("--access-key", dest="access_key", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--secret-key", dest="secret_key", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = connect_s3(**_parsed_args)
+      image: python:slim-buster
+    inputs:
+      parameters:
+      - {name: access_key}
+      - {name: secret_key}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--access-key", {"inputValue": "access_key"}, "--secret-key",
+          {"inputValue": "secret_key"}], "command": ["sh", "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''boto3'' || PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''boto3'' --user)
+          && \"$0\" \"$@\"", "sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\"
+          > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def connect_s3(access_key,
+          secret_key):\n    import boto3\n    def list_bucket_dir(bucket):\n        objects
+          = [x.key for x in bucket.objects.all()]\n        print(objects)\n        return
+          objects\n\n    session = boto3.Session(\n        aws_access_key_id=access_key,\n        aws_secret_access_key=secret_key,\n    )\n    _s3
+          = session.resource(''s3'')\n    bucket = _s3.Bucket(\"kubeflow-poc-saal\")\n    list_bucket_dir(bucket)\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Connect s3'', description='''')\n_parser.add_argument(\"--access-key\",
+          dest=\"access_key\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--secret-key\",
+          dest=\"secret_key\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = connect_s3(**_parsed_args)\n"],
+          "image": "python:slim-buster"}}, "inputs": [{"name": "access_key"}, {"name":
+          "secret_key"}], "name": "Connect s3"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"access_key": "{{inputs.parameters.access_key}}",
+          "secret_key": "{{inputs.parameters.secret_key}}"}'}
+  - name: fake-train
+    container:
+      args: [--model-path, fakeTrain.bin, --epochs, '{{inputs.parameters.epochs}}']
+      command:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'boto3' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+        --no-warn-script-location 'boto3' --user) && "$0" "$@"
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def fake_train(model_path, epochs):
+            handle = open(model_path, "wb")
+            for i in range(int(epochs)):
+                handle.write(bytes(i))
+            handle.close()
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Fake train', description='')
+        _parser.add_argument("--model-path", dest="model_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--epochs", dest="epochs", type=int, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = fake_train(**_parsed_args)
+      image: python:slim-buster
+    inputs:
+      parameters:
+      - {name: epochs}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--model-path", {"inputValue": "model_path"}, "--epochs", {"inputValue":
+          "epochs"}], "command": ["sh", "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3
+          -m pip install --quiet --no-warn-script-location ''boto3'' || PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''boto3'' --user)
+          && \"$0\" \"$@\"", "sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\"
+          > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def fake_train(model_path,
+          epochs):\n    handle = open(model_path, \"wb\")\n    for i in range(int(epochs)):\n        handle.write(bytes(i))\n    handle.close()\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Fake train'', description='''')\n_parser.add_argument(\"--model-path\",
+          dest=\"model_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--epochs\",
+          dest=\"epochs\", type=int, required=True, default=argparse.SUPPRESS)\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = fake_train(**_parsed_args)\n"],
+          "image": "python:slim-buster"}}, "inputs": [{"name": "model_path"}, {"name":
+          "epochs", "type": "Integer"}], "name": "Fake train"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"epochs": "{{inputs.parameters.epochs}}",
+          "model_path": "fakeTrain.bin"}'}
+  - name: pipeline
+    inputs:
+      parameters:
+      - {name: access_key}
+      - {name: epochs}
+      - {name: secret_key}
+    dag:
+      tasks:
+      - name: connect-s3
+        template: connect-s3
+        arguments:
+          parameters:
+          - {name: access_key, value: '{{inputs.parameters.access_key}}'}
+          - {name: secret_key, value: '{{inputs.parameters.secret_key}}'}
+      - name: connect-s3-2
+        template: connect-s3-2
+        dependencies: [fake-train]
+        arguments:
+          parameters:
+          - {name: access_key, value: '{{inputs.parameters.access_key}}'}
+          - {name: secret_key, value: '{{inputs.parameters.secret_key}}'}
+      - name: fake-train
+        template: fake-train
+        dependencies: [connect-s3]
+        arguments:
+          parameters:
+          - {name: epochs, value: '{{inputs.parameters.epochs}}'}
+      - name: uploads3
+        template: uploads3
+        dependencies: [fake-train]
+        arguments:
+          parameters:
+          - {name: access_key, value: '{{inputs.parameters.access_key}}'}
+          - {name: secret_key, value: '{{inputs.parameters.secret_key}}'}
+  - name: uploads3
+    container:
+      args: [--file, fakeTrain.bin, --bucket, kubeflow-poc-saal, --access-key, '{{inputs.parameters.access_key}}',
+        --secret-key, '{{inputs.parameters.secret_key}}']
+      command:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'boto3' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+        --no-warn-script-location 'boto3' --user) && "$0" "$@"
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def uploadS3(file, bucket, access_key, secret_key):
+            import os
+            import boto3
+            session = boto3.Session(
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+            )
+            client = session.client("s3")
+            resp = client.upload_file(file, bucket, os.path.basename(file))
+            print("Upload Errors:", resp)
+            return resp
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='UploadS3', description='')
+        _parser.add_argument("--file", dest="file", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--bucket", dest="bucket", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--access-key", dest="access_key", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--secret-key", dest="secret_key", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = uploadS3(**_parsed_args)
+      image: python:slim-buster
+    inputs:
+      parameters:
+      - {name: access_key}
+      - {name: secret_key}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--file", {"inputValue": "file"}, "--bucket", {"inputValue": "bucket"},
+          "--access-key", {"inputValue": "access_key"}, "--secret-key", {"inputValue":
+          "secret_key"}], "command": ["sh", "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''boto3'' || PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''boto3'' --user)
+          && \"$0\" \"$@\"", "sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\"
+          > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def uploadS3(file,
+          bucket, access_key, secret_key):\n    import os\n    import boto3\n    session
+          = boto3.Session(\n        aws_access_key_id=access_key,\n        aws_secret_access_key=secret_key,\n    )\n    client
+          = session.client(\"s3\")\n    resp = client.upload_file(file, bucket, os.path.basename(file))\n    print(\"Upload
+          Errors:\", resp)\n    return resp\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''UploadS3'',
+          description='''')\n_parser.add_argument(\"--file\", dest=\"file\", type=str,
+          required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--bucket\",
+          dest=\"bucket\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--access-key\",
+          dest=\"access_key\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--secret-key\",
+          dest=\"secret_key\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = uploadS3(**_parsed_args)\n"],
+          "image": "python:slim-buster"}}, "inputs": [{"name": "file"}, {"name": "bucket"},
+          {"name": "access_key"}, {"name": "secret_key"}], "name": "UploadS3"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"access_key": "{{inputs.parameters.access_key}}",
+          "bucket": "kubeflow-poc-saal", "file": "fakeTrain.bin", "secret_key": "{{inputs.parameters.secret_key}}"}'}
+  arguments:
+    parameters:
+    - {name: access_key}
+    - {name: secret_key}
+    - {name: epochs, value: '5'}
+  serviceAccountName: pipeline-runner
