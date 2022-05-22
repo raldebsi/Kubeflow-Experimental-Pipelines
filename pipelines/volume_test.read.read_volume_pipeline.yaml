@@ -1,0 +1,107 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: shared-volume-pipeline-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-22T21:14:41.372541',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "Test reading from a consistent
+      volume", "inputs": [{"name": "data_path", "type": "String"}], "name": "Shared
+      Volume Pipeline"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12}
+spec:
+  entrypoint: shared-volume-pipeline
+  templates:
+  - name: create-volume
+    resource:
+      action: create
+      manifest: |
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: '{{workflow.name}}-shared-volume-ridhwan-resource'
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 4Gi
+          volumeName: shared-volume-ridhwan-volume
+    outputs:
+      parameters:
+      - name: create-volume-manifest
+        valueFrom: {jsonPath: '{}'}
+      - name: create-volume-name
+        valueFrom: {jsonPath: '{.metadata.name}'}
+      - name: create-volume-size
+        valueFrom: {jsonPath: '{.status.capacity.storage}'}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: read-file
+    container:
+      args: [--path, '{{inputs.parameters.data_path}}']
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def read_file(path):
+            import os
+            full_path = os.path.join(path, "file.txt")
+            with open(full_path, "r", encoding='utf-8') as f:
+                return f.read()
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Read file', description='')
+        _parser.add_argument("--path", dest="path", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = read_file(**_parsed_args)
+      image: python:3.7
+      volumeMounts:
+      - {mountPath: '{{inputs.parameters.data_path}}', name: create-volume}
+    inputs:
+      parameters:
+      - {name: create-volume-name}
+      - {name: data_path}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--path", {"inputValue": "path"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf
+          \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+          "def read_file(path):\n    import os\n    full_path = os.path.join(path,
+          \"file.txt\")\n    with open(full_path, \"r\", encoding=''utf-8'') as f:\n        return
+          f.read()\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Read
+          file'', description='''')\n_parser.add_argument(\"--path\", dest=\"path\",
+          type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = read_file(**_parsed_args)\n"], "image": "python:3.7"}}, "inputs": [{"name":
+          "path", "type": "String"}], "name": "Read file"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"path": "{{inputs.parameters.data_path}}"}'}
+    volumes:
+    - name: create-volume
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.create-volume-name}}'}
+  - name: shared-volume-pipeline
+    inputs:
+      parameters:
+      - {name: data_path}
+    dag:
+      tasks:
+      - {name: create-volume, template: create-volume}
+      - name: read-file
+        template: read-file
+        dependencies: [create-volume]
+        arguments:
+          parameters:
+          - {name: create-volume-name, value: '{{tasks.create-volume.outputs.parameters.create-volume-name}}'}
+          - {name: data_path, value: '{{inputs.parameters.data_path}}'}
+  arguments:
+    parameters:
+    - {name: data_path}
+  serviceAccountName: pipeline-runner
