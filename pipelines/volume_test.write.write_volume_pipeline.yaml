@@ -1,37 +1,35 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: shared-volume-pipeline-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-22T21:14:41.673736',
+  generateName: writing-into-pvc-test-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-22T22:17:03.172612',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Test writing to a consistent
-      volume", "inputs": [{"name": "write_path", "type": "String"}], "name": "Shared
-      Volume Pipeline"}'}
+      volume", "name": "Writing Into PVC Test"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12}
 spec:
-  entrypoint: shared-volume-pipeline
+  entrypoint: writing-into-pvc-test
   templates:
-  - name: create-volume
+  - name: create-ridhwan-volumes
     resource:
       action: create
       manifest: |
         apiVersion: v1
         kind: PersistentVolumeClaim
         metadata:
-          name: '{{workflow.name}}-shared-volume-ridhwan-resource'
+          name: ridhwan-pvc-mount
         spec:
           accessModes:
           - ReadWriteOnce
           resources:
             requests:
-              storage: 4Gi
-          volumeName: shared-volume-ridhwan-volume
+              storage: 1Gi
     outputs:
       parameters:
-      - name: create-volume-manifest
+      - name: create-ridhwan-volumes-manifest
         valueFrom: {jsonPath: '{}'}
-      - name: create-volume-name
+      - name: create-ridhwan-volumes-name
         valueFrom: {jsonPath: '{.metadata.name}'}
-      - name: create-volume-size
+      - name: create-ridhwan-volumes-size
         valueFrom: {jsonPath: '{.status.capacity.storage}'}
     metadata:
       labels:
@@ -40,7 +38,7 @@ spec:
         pipelines.kubeflow.org/enable_caching: "true"
   - name: read-file
     container:
-      args: [--path, '{{inputs.parameters.write_path}}']
+      args: [--path, /data]
       command:
       - sh
       - -ec
@@ -63,11 +61,10 @@ spec:
         _outputs = read_file(**_parsed_args)
       image: python:3.7
       volumeMounts:
-      - {mountPath: '{{inputs.parameters.write_path}}', name: create-volume}
+      - {mountPath: /data, name: create-ridhwan-volumes}
     inputs:
       parameters:
-      - {name: create-volume-name}
-      - {name: write_path}
+      - {name: create-ridhwan-volumes-name}
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
@@ -83,35 +80,14 @@ spec:
           type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
           = read_file(**_parsed_args)\n"], "image": "python:3.7"}}, "inputs": [{"name":
           "path", "type": "String"}], "name": "Read file"}', pipelines.kubeflow.org/component_ref: '{}',
-        pipelines.kubeflow.org/arguments.parameters: '{"path": "{{inputs.parameters.write_path}}"}'}
+        pipelines.kubeflow.org/arguments.parameters: '{"path": "/data"}'}
     volumes:
-    - name: create-volume
-      persistentVolumeClaim: {claimName: '{{inputs.parameters.create-volume-name}}'}
-  - name: shared-volume-pipeline
-    inputs:
-      parameters:
-      - {name: write_path}
-    dag:
-      tasks:
-      - {name: create-volume, template: create-volume}
-      - name: read-file
-        template: read-file
-        dependencies: [create-volume, write-file]
-        arguments:
-          parameters:
-          - {name: create-volume-name, value: '{{tasks.create-volume.outputs.parameters.create-volume-name}}'}
-          - {name: write_path, value: '{{inputs.parameters.write_path}}'}
-      - name: write-file
-        template: write-file
-        dependencies: [create-volume]
-        arguments:
-          parameters:
-          - {name: create-volume-name, value: '{{tasks.create-volume.outputs.parameters.create-volume-name}}'}
-          - {name: write_path, value: '{{inputs.parameters.write_path}}'}
+    - name: create-ridhwan-volumes
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.create-ridhwan-volumes-name}}'}
   - name: write-file
     container:
-      args: [--contents, 'This is a file created by the pipline {{inputs.parameters.write_path}}',
-        --path, '{{inputs.parameters.write_path}}']
+      args: [--contents, This is a file created by the pipeline into /data, --path,
+        /data]
       command:
       - sh
       - -ec
@@ -122,6 +98,7 @@ spec:
       - |
         def write_file(contents, path):
             import os
+            os.makedirs(path, exist_ok=True)
             full_path = os.path.join(path, "file.txt")
             with open(full_path, "w", encoding='utf-8') as f:
                 f.write(contents)
@@ -135,11 +112,10 @@ spec:
         _outputs = write_file(**_parsed_args)
       image: python:3.7
       volumeMounts:
-      - {mountPath: '{{inputs.parameters.write_path}}', name: create-volume}
+      - {mountPath: /data, name: create-ridhwan-volumes}
     inputs:
       parameters:
-      - {name: create-volume-name}
-      - {name: write_path}
+      - {name: create-ridhwan-volumes-name}
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
@@ -149,20 +125,36 @@ spec:
           {"args": ["--contents", {"inputValue": "contents"}, "--path", {"inputValue":
           "path"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\"
           \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def
-          write_file(contents, path):\n    import os\n    full_path = os.path.join(path,
-          \"file.txt\")\n    with open(full_path, \"w\", encoding=''utf-8'') as f:\n        f.write(contents)\n\nimport
-          argparse\n_parser = argparse.ArgumentParser(prog=''Write file'', description='''')\n_parser.add_argument(\"--contents\",
-          dest=\"contents\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--path\",
+          write_file(contents, path):\n    import os\n    os.makedirs(path, exist_ok=True)\n    full_path
+          = os.path.join(path, \"file.txt\")\n    with open(full_path, \"w\", encoding=''utf-8'')
+          as f:\n        f.write(contents)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Write
+          file'', description='''')\n_parser.add_argument(\"--contents\", dest=\"contents\",
+          type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--path\",
           dest=\"path\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args
           = vars(_parser.parse_args())\n\n_outputs = write_file(**_parsed_args)\n"],
           "image": "python:3.7"}}, "inputs": [{"name": "contents", "type": "String"},
           {"name": "path", "type": "String"}], "name": "Write file"}', pipelines.kubeflow.org/component_ref: '{}',
         pipelines.kubeflow.org/arguments.parameters: '{"contents": "This is a file
-          created by the pipline {{inputs.parameters.write_path}}", "path": "{{inputs.parameters.write_path}}"}'}
+          created by the pipeline into /data", "path": "/data"}'}
     volumes:
-    - name: create-volume
-      persistentVolumeClaim: {claimName: '{{inputs.parameters.create-volume-name}}'}
+    - name: create-ridhwan-volumes
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.create-ridhwan-volumes-name}}'}
+  - name: writing-into-pvc-test
+    dag:
+      tasks:
+      - {name: create-ridhwan-volumes, template: create-ridhwan-volumes}
+      - name: read-file
+        template: read-file
+        dependencies: [create-ridhwan-volumes, write-file]
+        arguments:
+          parameters:
+          - {name: create-ridhwan-volumes-name, value: '{{tasks.create-ridhwan-volumes.outputs.parameters.create-ridhwan-volumes-name}}'}
+      - name: write-file
+        template: write-file
+        dependencies: [create-ridhwan-volumes]
+        arguments:
+          parameters:
+          - {name: create-ridhwan-volumes-name, value: '{{tasks.create-ridhwan-volumes.outputs.parameters.create-ridhwan-volumes-name}}'}
   arguments:
-    parameters:
-    - {name: write_path}
+    parameters: []
   serviceAccountName: pipeline-runner

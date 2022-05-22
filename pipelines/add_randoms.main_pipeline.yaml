@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: add-random-3-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-22T21:14:41.609907',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-22T21:59:13.530919',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Add Random", "inputs":
       [{"name": "a", "type": "Integer"}, {"name": "b", "type": "Integer"}], "name":
       "Add Random "}'}
