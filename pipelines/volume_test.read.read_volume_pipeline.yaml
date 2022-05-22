@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: shared-volume-pipeline-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-22T23:11:27.470565',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-22T23:38:01.552781',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Test reading from a consistent
       volume", "inputs": [{"name": "data_path", "type": "String"}], "name": "Shared
       Volume Pipeline"}'}
