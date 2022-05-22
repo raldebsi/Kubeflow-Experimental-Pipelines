@@ -1,0 +1,295 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: kube-lablelizer-experiment-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-22T19:19:48.548501',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "Experiment using KubeFlow
+      to run a ML Train & Test pipeline", "inputs": [{"name": "train_source", "type":
+      "String"}, {"name": "valid_source", "type": "String"}, {"name": "test_data",
+      "type": "txt"}], "name": "Kube Lablelizer Experiment"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12}
+spec:
+  entrypoint: kube-lablelizer-experiment
+  templates:
+  - name: kube-lablelizer-experiment
+    inputs:
+      parameters:
+      - {name: train_source}
+      - {name: valid_source}
+    dag:
+      tasks:
+      - {name: mount-volume, template: mount-volume}
+      - name: validate-data
+        template: validate-data
+        dependencies: [mount-volume, wget-data, wget-data-2]
+        arguments:
+          parameters:
+          - {name: mount-volume-name, value: '{{tasks.mount-volume.outputs.parameters.mount-volume-name}}'}
+      - name: wget-data
+        template: wget-data
+        dependencies: [mount-volume]
+        arguments:
+          parameters:
+          - {name: mount-volume-name, value: '{{tasks.mount-volume.outputs.parameters.mount-volume-name}}'}
+          - {name: train_source, value: '{{inputs.parameters.train_source}}'}
+      - name: wget-data-2
+        template: wget-data-2
+        dependencies: [mount-volume]
+        arguments:
+          parameters:
+          - {name: mount-volume-name, value: '{{tasks.mount-volume.outputs.parameters.mount-volume-name}}'}
+          - {name: valid_source, value: '{{inputs.parameters.valid_source}}'}
+  - name: mount-volume
+    resource:
+      action: create
+      manifest: |
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: '{{workflow.name}}-kube-mount-ridhwan'
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 4Gi
+    outputs:
+      parameters:
+      - name: mount-volume-manifest
+        valueFrom: {jsonPath: '{}'}
+      - name: mount-volume-name
+        valueFrom: {jsonPath: '{.metadata.name}'}
+      - name: mount-volume-size
+        valueFrom: {jsonPath: '{.status.capacity.storage}'}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: validate-data
+    container:
+      args: [--data-paths, '["/data/train.json", "/data/dev.json"]', --data-root,
+        /data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def validate_data(data_paths, data_root = "/data"):
+            """
+            Validate data.
+            """
+            import os
+
+            for data_path in data_paths:
+                if not data_path.startswith(data_root):
+                    data_path = os.path.join(data_root, data_path)
+                if not os.path.exists(data_path):
+                    raise ValueError("Data path {} does not exist".format(data_path))
+                if not os.path.isfile(data_path):
+                    raise ValueError("Data path {} is not a file".format(data_path))
+                print("Data {} is valid".format(data_path))
+
+            return
+
+        import json
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Validate data', description='Validate data.')
+        _parser.add_argument("--data-paths", dest="data_paths", type=json.loads, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--data-root", dest="data_root", type=str, required=False, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = validate_data(**_parsed_args)
+      image: python:slim-buster
+      volumeMounts:
+      - {mountPath: /data, name: mount-volume}
+    inputs:
+      parameters:
+      - {name: mount-volume-name}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Validate
+          data.", "implementation": {"container": {"args": ["--data-paths", {"inputValue":
+          "data_paths"}, {"if": {"cond": {"isPresent": "data_root"}, "then": ["--data-root",
+          {"inputValue": "data_root"}]}}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf
+          \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+          "def validate_data(data_paths, data_root = \"/data\"):\n    \"\"\"\n    Validate
+          data.\n    \"\"\"\n    import os\n\n    for data_path in data_paths:\n        if
+          not data_path.startswith(data_root):\n            data_path = os.path.join(data_root,
+          data_path)\n        if not os.path.exists(data_path):\n            raise
+          ValueError(\"Data path {} does not exist\".format(data_path))\n        if
+          not os.path.isfile(data_path):\n            raise ValueError(\"Data path
+          {} is not a file\".format(data_path))\n        print(\"Data {} is valid\".format(data_path))\n\n    return\n\nimport
+          json\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Validate
+          data'', description=''Validate data.'')\n_parser.add_argument(\"--data-paths\",
+          dest=\"data_paths\", type=json.loads, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--data-root\",
+          dest=\"data_root\", type=str, required=False, default=argparse.SUPPRESS)\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = validate_data(**_parsed_args)\n"],
+          "image": "python:slim-buster"}}, "inputs": [{"name": "data_paths", "type":
+          "typing.List[str]"}, {"default": "/data", "name": "data_root", "optional":
+          true, "type": "String"}], "name": "Validate data"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"data_paths": "[\"/data/train.json\",
+          \"/data/dev.json\"]", "data_root": "/data"}'}
+    volumes:
+    - name: mount-volume
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.mount-volume-name}}'}
+  - name: wget-data
+    container:
+      args: [--url, '{{inputs.parameters.train_source}}', --output-path, /data/train.json]
+      command:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'wget' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'wget' --user) && "$0" "$@"
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def wget_data(url, output_path):
+            """
+            Download data from a URL.
+            """
+            import wget
+            import os
+
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            print("Downloading {} to {}".format(url, output_path))
+            data = wget.download(url, output_path)
+            if not data:
+                raise ValueError("Failed to download data from {}".format(url))
+
+            return
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Wget data', description='Download data from a URL.')
+        _parser.add_argument("--url", dest="url", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--output-path", dest="output_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = wget_data(**_parsed_args)
+      image: python:slim-buster
+      volumeMounts:
+      - {mountPath: /data, name: mount-volume}
+    inputs:
+      parameters:
+      - {name: mount-volume-name}
+      - {name: train_source}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Download
+          data from a URL.", "implementation": {"container": {"args": ["--url", {"inputValue":
+          "url"}, "--output-path", {"inputValue": "output_path"}], "command": ["sh",
+          "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+          ''wget'' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+          --no-warn-script-location ''wget'' --user) && \"$0\" \"$@\"", "sh", "-ec",
+          "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
+          -u \"$program_path\" \"$@\"\n", "def wget_data(url, output_path):\n    \"\"\"\n    Download
+          data from a URL.\n    \"\"\"\n    import wget\n    import os\n\n    os.makedirs(os.path.dirname(output_path),
+          exist_ok=True)\n    print(\"Downloading {} to {}\".format(url, output_path))\n    data
+          = wget.download(url, output_path)\n    if not data:\n        raise ValueError(\"Failed
+          to download data from {}\".format(url))\n\n    return\n\nimport argparse\n_parser
+          = argparse.ArgumentParser(prog=''Wget data'', description=''Download data
+          from a URL.'')\n_parser.add_argument(\"--url\", dest=\"url\", type=str,
+          required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--output-path\",
+          dest=\"output_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = wget_data(**_parsed_args)\n"],
+          "image": "python:slim-buster"}}, "inputs": [{"name": "url", "type": "String"},
+          {"name": "output_path", "type": "String"}], "name": "Wget data"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"output_path": "/data/train.json",
+          "url": "{{inputs.parameters.train_source}}"}'}
+    volumes:
+    - name: mount-volume
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.mount-volume-name}}'}
+  - name: wget-data-2
+    container:
+      args: [--url, '{{inputs.parameters.valid_source}}', --output-path, /data/dev.json]
+      command:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'wget' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'wget' --user) && "$0" "$@"
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def wget_data(url, output_path):
+            """
+            Download data from a URL.
+            """
+            import wget
+            import os
+
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            print("Downloading {} to {}".format(url, output_path))
+            data = wget.download(url, output_path)
+            if not data:
+                raise ValueError("Failed to download data from {}".format(url))
+
+            return
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Wget data', description='Download data from a URL.')
+        _parser.add_argument("--url", dest="url", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--output-path", dest="output_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = wget_data(**_parsed_args)
+      image: python:slim-buster
+      volumeMounts:
+      - {mountPath: /data, name: mount-volume}
+    inputs:
+      parameters:
+      - {name: mount-volume-name}
+      - {name: valid_source}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Download
+          data from a URL.", "implementation": {"container": {"args": ["--url", {"inputValue":
+          "url"}, "--output-path", {"inputValue": "output_path"}], "command": ["sh",
+          "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+          ''wget'' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+          --no-warn-script-location ''wget'' --user) && \"$0\" \"$@\"", "sh", "-ec",
+          "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
+          -u \"$program_path\" \"$@\"\n", "def wget_data(url, output_path):\n    \"\"\"\n    Download
+          data from a URL.\n    \"\"\"\n    import wget\n    import os\n\n    os.makedirs(os.path.dirname(output_path),
+          exist_ok=True)\n    print(\"Downloading {} to {}\".format(url, output_path))\n    data
+          = wget.download(url, output_path)\n    if not data:\n        raise ValueError(\"Failed
+          to download data from {}\".format(url))\n\n    return\n\nimport argparse\n_parser
+          = argparse.ArgumentParser(prog=''Wget data'', description=''Download data
+          from a URL.'')\n_parser.add_argument(\"--url\", dest=\"url\", type=str,
+          required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--output-path\",
+          dest=\"output_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = wget_data(**_parsed_args)\n"],
+          "image": "python:slim-buster"}}, "inputs": [{"name": "url", "type": "String"},
+          {"name": "output_path", "type": "String"}], "name": "Wget data"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"output_path": "/data/dev.json",
+          "url": "{{inputs.parameters.valid_source}}"}'}
+    volumes:
+    - name: mount-volume
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.mount-volume-name}}'}
+  arguments:
+    parameters:
+    - {name: train_source}
+    - {name: valid_source}
+    - {name: test_data}
+  serviceAccountName: pipeline-runner
