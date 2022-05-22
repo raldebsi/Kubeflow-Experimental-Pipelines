@@ -7,7 +7,8 @@ import kfp.compiler
 from .kube_exp_ridhwan import kube_exp_ridhwan
 from .add_randoms import main_pipeline as add_randoms
 from .s3_bucket_test import pipeline as s3_pipeline
-
+from .volume_test.write import write_volume_pipeline
+from .volume_test.read import read_volume_pipeline
 
 PIPELINES_LOCATION = "pipelines"
 IS_ROOT = os.path.exists("src")
