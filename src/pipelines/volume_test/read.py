@@ -1,10 +1,10 @@
-from typing import NamedTuple, List
 import kfp
 import kfp.compiler
 import kfp.components
 from kfp.dsl._pipeline_param import sanitize_k8s_name
 from kfp.dsl._pipeline_volume import PipelineVolume
-from kfp.dsl._container_op import _register_op_handler
+from src.pipelines.common_utils import get_volume_by_name, add_pvolumes_func
+
 
 def read_file(path: str):
     import os
@@ -21,32 +21,19 @@ def read_file(path: str):
     description="Test reading from a consistent volume",
 )
 def read_volume_pipeline(data_path: str):
-    from kfp import dsl
-
-    # mount_vol = dsl.VolumeOp(
+    # mount_vol = kfp.dsl.VolumeOp(
     #     name="Read Ridhwan Volumes",
     #     size="1Gi",
-    #     modes=dsl.VOLUME_MODE_RWO,
+    #     modes=kfp.dsl.VOLUME_MODE_RWO,
     #     resource_name="ridhwan-pvc-mount", # PVC Name, will be {pipeline_name}-{id}-resource if name does not exist and generate_unique_name is True.
     #     volume_name="volumesecond",
     #     generate_unique_name=False,
     # )
 
-
-    # Get volume
-    volume_name = "ridhwan-pvc-mount"
-    volume_name = sanitize_k8s_name(volume_name)
-    unique_volume_name = "{{workflow.name}}-%s" % volume_name
-    mount_vol = PipelineVolume(
-        name=unique_volume_name, # Parameter name, if found then it will be reused. Therefore it should be unique.
-        pvc=volume_name,
-        volume=None, # type: ignore 
-    )
-
+    mount_vol = get_volume_by_name("ridhwan-pvc-mount")
     data_store_path = data_path
-    # pvolumes = {data_store_path: mount_vol.volume}
     pvolumes = {data_store_path: mount_vol}
-    volumetrize = lambda func: func.add_pvolumes(pvolumes)
+    volumetrize = add_pvolumes_func(pvolumes)
 
     # Components
     read_volume_component = kfp.components.create_component_from_func(read_file)
