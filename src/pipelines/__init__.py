@@ -2,6 +2,8 @@ import os
 import types
 from typing import Callable
 import kfp.compiler
+import json
+import hashlib
 
 # Include here pipelines you want to compile. Piplines are imported from src/pipelines/ and are automatically included.
 from .kube_exp_ridhwan import kube_exp_ridhwan
@@ -11,19 +13,49 @@ from .volume_test.write import write_volume_pipeline
 from .volume_test.read import read_volume_pipeline
 
 PIPELINES_LOCATION = "pipelines"
+HASH_LOCATION = os.path.join(PIPELINES_LOCATION, "hash.md5")
 IS_ROOT = os.path.exists("src")
 os.makedirs(PIPELINES_LOCATION, exist_ok=True)
+if os.path.exists(HASH_LOCATION):
+    with open(HASH_LOCATION, encoding='utf-8') as f:
+        try:
+            CODE_HASHES = json.load(f)
+        except json.decoder.JSONDecodeError:
+            CODE_HASHES = {}
+else:
+    CODE_HASHES = {}
+
+def hash_code(code):
+    return hashlib.md5(code.encode('utf-8')).hexdigest()
 
 def get_pipelines():
     # Retrieve all pipelines from imported modules
+    has_changed = False
     functions = {val for val in globals().values() if isinstance(val, types.FunctionType)}
-    pipelines = [val for val in functions if val.__module__.startswith("src.pipelines.")] # Only include pipelines in src/pipelines/
-    return pipelines
+    for val in functions:
+        if val.__module__.startswith("src.pipelines."): # Only include pipelines in src/pipelines/
+            # Get File Content and hash using md5
+            with open(val.__code__.co_filename, encoding='utf-8') as f:
+                file_content = f.read()
+            file_hash = hash_code(file_content)
+            # Check if hash has changed
+            lookup_name = f"{val.__module__}.{val.__name__}"
+            if file_hash != CODE_HASHES.get(lookup_name, None):
+                print("Pipeline {} will be recompiled".format(lookup_name))
+                has_changed = True
+                yield val
+                CODE_HASHES[lookup_name] = file_hash 
+    
+    # Write hash to file
+    if has_changed:
+        with open(HASH_LOCATION, "w", encoding='utf-8') as f:
+            json.dump(CODE_HASHES, f)
 
-ALL_PIPELINES = get_pipelines()
+
+# ALL_PIPELINES = set(get_pipelines())
 
 def compile_all():
-    for pipeline in ALL_PIPELINES:
+    for pipeline in get_pipelines():
         compile(pipeline)
 
 def compile(exp: Callable):
