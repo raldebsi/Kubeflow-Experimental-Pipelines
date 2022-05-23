@@ -7,10 +7,11 @@ import hashlib
 
 # Include here pipelines you want to compile. Piplines are imported from src/pipelines/ and are automatically included.
 from .kube_exp_ridhwan import kube_exp_ridhwan
-from .add_randoms import main_pipeline as add_randoms
-from .s3_bucket_test import pipeline as s3_pipeline
+from .add_randoms import main_pipeline
+from .s3_bucket_test import pipeline
 from .volume_test.write import write_volume_pipeline
 from .volume_test.read import read_volume_pipeline
+from .test_upload import pipeline
 
 PIPELINES_LOCATION = "pipelines"
 HASH_LOCATION = os.path.join(PIPELINES_LOCATION, "hash.md5")
@@ -39,9 +40,9 @@ def get_pipelines():
                 file_content = f.read()
             file_hash = hash_code(file_content)
             # Check if hash has changed
-            lookup_name = f"{val.__module__}.{val.__name__}"
+            lookup_name = "{}.{}".format(val.__module__,val.__name__)
             if file_hash != CODE_HASHES.get(lookup_name, None):
-                print("Pipeline {} will be recompiled".format(lookup_name))
+                print("Pipeline {} will be compiled".format(lookup_name))
                 has_changed = True
                 yield val
                 CODE_HASHES[lookup_name] = file_hash 
@@ -64,7 +65,7 @@ def compile(exp: Callable):
         raise ValueError("Must be run from root directory of project")
     
     module = exp.__module__.split(".", 2)[-1]
-    pipeline_name = f"{module}.{exp.__name__}.yaml"
+    pipeline_name = "{}.{}.yaml".format(module, exp.__name__)
     output_location = os.path.join(PIPELINES_LOCATION, pipeline_name)
     kfp.compiler.Compiler().compile(exp, output_location)
     print("Compiled pipeline to {}".format(output_location))
