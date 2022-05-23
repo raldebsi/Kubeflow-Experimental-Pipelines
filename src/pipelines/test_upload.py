@@ -3,7 +3,7 @@ import kfp
 import kfp.compiler
 import kfp.components
 
-def receive_and_print_data(bin_input: kfp.components.InputBinaryFile("myInBin")) -> NamedTuple(
+def receive_and_print_data(bin_input: kfp.components.InputBinaryFile("DataInput")) -> NamedTuple(
     'Outputs', [
         ("my_out_data", kfp.components.OutputBinaryFile)
     ]
@@ -16,5 +16,12 @@ def receive_and_print_data(bin_input: kfp.components.InputBinaryFile("myInBin"))
     "Test File Upload",
     "Testing uploading files from ui",
 )
-def pipeline(test_data_2: kfp.components.InputBinaryFile("myBinData")):
+def pipeline(test_data_2: kfp.components.InputBinaryFile("DataInput")):
     print(test_data_2)
+
+    comp = kfp.components.create_component_from_func(
+        receive_and_print_data,
+
+    )
+    task = comp(test_data_2)
+

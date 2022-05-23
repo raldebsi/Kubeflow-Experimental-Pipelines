@@ -2,18 +2,94 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: test-file-upload-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-23T12:21:46.411148',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-23T12:34:01.815620',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Testing uploading files
-      from ui", "inputs": [{"name": "test_data_2", "type": "myBinData"}], "name":
+      from ui", "inputs": [{"name": "test_data_2", "type": "DataInput"}], "name":
       "Test File Upload"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12}
 spec:
   entrypoint: test-file-upload
   templates:
+  - name: receive-and-print-data
+    container:
+      args: [--bin-input, /tmp/inputs/bin_input/data, '----output-paths', /tmp/outputs/my_out_data/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def receive_and_print_data(bin_input):
+            print(bin_input)
+
+            return bin_input
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Receive and print data', description='')
+        _parser.add_argument("--bin-input", dest="bin_input", type=argparse.FileType('rb'), required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = receive_and_print_data(**_parsed_args)
+
+        _output_serializers = [
+            str,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: python:3.7
+    inputs:
+      artifacts:
+      - {name: test_data_2, path: /tmp/inputs/bin_input/data}
+    outputs:
+      artifacts:
+      - {name: receive-and-print-data-my_out_data, path: /tmp/outputs/my_out_data/data}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--bin-input", {"inputPath": "bin_input"}, "----output-paths",
+          {"outputPath": "my_out_data"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf
+          \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+          "def receive_and_print_data(bin_input):\n    print(bin_input)\n\n    return
+          bin_input\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Receive
+          and print data'', description='''')\n_parser.add_argument(\"--bin-input\",
+          dest=\"bin_input\", type=argparse.FileType(''rb''), required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = receive_and_print_data(**_parsed_args)\n\n_output_serializers
+          = [\n    str,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "bin_input", "type": "DataInput"}],
+          "name": "Receive and print data", "outputs": [{"name": "my_out_data", "type":
+          "OutputBinaryFile"}]}', pipelines.kubeflow.org/component_ref: '{}'}
   - name: test-file-upload
+    inputs:
+      artifacts:
+      - {name: test_data_2}
     dag:
-      tasks: []
+      tasks:
+      - name: receive-and-print-data
+        template: receive-and-print-data
+        arguments:
+          artifacts:
+          - {name: test_data_2, from: '{{inputs.artifacts.test_data_2}}'}
   arguments:
     parameters:
     - {name: test_data_2}
+    artifacts:
+    - name: test_data_2
+      raw: {data: '{{workflow.parameters.test_data_2}}'}
   serviceAccountName: pipeline-runner
