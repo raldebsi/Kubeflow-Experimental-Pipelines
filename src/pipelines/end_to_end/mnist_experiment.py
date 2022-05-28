@@ -7,7 +7,7 @@ from kubeflow.katib import (ApiClient, V1beta1AlgorithmSpec,
                             V1beta1TrialParameterSpec, V1beta1TrialTemplate)
 import yaml
 
-from src.pipelines.common_utils import get_or_create_pvc, spec_from_file
+from src.pipelines.common_utils import get_or_create_pvc, spec_from_file_format
 import json
 
 def katib_experiment_factory(experiment, namespace, steps):
@@ -58,7 +58,7 @@ def katib_experiment_factory(experiment, namespace, steps):
         param_batch_size        
     ]
 
-    trial_spec = spec_from_file("src/pipelines/yamls/Specs/TFJob.yaml", trainStepsParamVal=steps)
+    trial_spec = spec_from_file_format("src/pipelines/yamls/Specs/TFJob.yaml", trainStepsParamVal=steps)
     trial_template = V1beta1TrialTemplate(
         primary_container_name="tensorflow",
         trial_parameters=[
@@ -103,12 +103,12 @@ def convert_hyperparams(hyperparams) -> str:
     return " ".join(best_params)
 
 def create_tfjob_task(job_name, job_namespace, steps, hyperparams, mount_name):
-    tfjob_chief_spec = spec_from_file("src/pipelines/yamls/Specs/TFJobChief.yaml",
+    tfjob_chief_spec = spec_from_file_format("src/pipelines/yamls/Specs/TFJobChief.yaml",
         trainingStepsParamVal=steps,
         bestHPsParamVal=hyperparams,
         volumeResourceName=mount_name
     )
-    tfjob_worker_spec = spec_from_file("src/pipelines/yamls/Specs/TFJobWorker.yaml",
+    tfjob_worker_spec = spec_from_file_format("src/pipelines/yamls/Specs/TFJobWorker.yaml",
         trainingStepsParamVal=steps,
         bestHPsParamVal=hyperparams,
     )
@@ -127,7 +127,7 @@ def create_tfjob_task(job_name, job_namespace, steps, hyperparams, mount_name):
     return tfjob_task
 
 def create_serve_task(model_name, model_namespace, mount_name):
-    infer_service = spec_from_file(
+    infer_service = spec_from_file_format(
         "src/pipelines/yamls/Specs/KFServe.yaml",
         apiVersion="serving.kserve.io/v1beta1",
         modelName=model_name,

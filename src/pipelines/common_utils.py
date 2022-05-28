@@ -6,7 +6,7 @@ from kfp.dsl._pipeline_volume import PipelineVolume
 from kfp import dsl
 import yaml
 
-def spec_from_file(yaml_file, **kwargs):
+def spec_from_file_format(yaml_file, **kwargs):
     with open(yaml_file, 'r') as f:
         component_spec = f.read()
         for k, v in kwargs.items():
