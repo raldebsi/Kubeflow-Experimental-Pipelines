@@ -1,8 +1,0 @@
-name: HuggingFace Trainer
-implementation:
-  container:
-    image: abdullahsaal/hf_train@sha256:fb30378e91fba55f29e4cba84f74a90e12b6a02f1da1e39d4fc339c3bd79276c
-    command: 
-      - /workspace/run_train.sh
-    
-
