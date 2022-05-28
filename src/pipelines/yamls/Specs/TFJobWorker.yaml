@@ -1,0 +1,15 @@
+replicas: 1
+restartPolicy: OnFailure
+template:
+  metadata:
+    annotations:
+      sidecar.istio.io/inject: 'false'
+  spec:
+    containers:
+    - name: tensorflow
+      image: docker.io/liuhougangxa/tf-estimator-mnist
+      command:
+      - sh
+      - "-c"
+      args:
+      - python /opt/model.py --tf-export-dir=/mnt/export --tf-train-steps={trainingStepsParamVal} {bestHPsParamVal}

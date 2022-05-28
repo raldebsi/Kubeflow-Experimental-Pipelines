@@ -1,0 +1,38 @@
+apiVersion: kubeflow.org/v1
+kind: TFJob
+spec:
+  tfReplicaSpecs:
+    Chief:
+      replicas: 1
+      restartPolicy: OnFailure
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: 'false'
+        spec:
+          containers:
+          - name: tensorflow
+            image: docker.io/liuhougangxa/tf-estimator-mnist
+            command:
+            - python
+            - "/opt/model.py"
+            - "--tf-train-steps={trainStepsParamVal}"
+            - "--tf-learning-rate=${trialParameters.learningRate}"
+            - "--tf-batch-size=${trialParameters.batchSize}"
+    Worker:
+      replicas: 1
+      restartPolicy: OnFailure
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: 'false'
+        spec:
+          containers:
+          - name: tensorflow
+            image: docker.io/liuhougangxa/tf-estimator-mnist
+            command:
+            - python
+            - "/opt/model.py"
+            - "--tf-train-steps={trainStepsParamVal}"
+            - "--tf-learning-rate=${trialParameters.learningRate}"
+            - "--tf-batch-size=${trialParameters.batchSize}"

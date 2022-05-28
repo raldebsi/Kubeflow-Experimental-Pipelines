@@ -7,10 +7,12 @@ import hashlib
 
 # Include here pipelines you want to compile. Piplines are imported from src/pipelines/ and are automatically included.
 from .kube_exp_ridhwan import kube_exp_ridhwan
-from .add_randoms import main_pipeline
-from .s3_bucket_test import pipeline
+from .add_randoms import main_pipeline as randpipeline
+from .s3_bucket_test import pipeline as s3pipeline
 from .volume_test.write import write_volume_pipeline
 from .volume_test.read import read_volume_pipeline
+from .test_upload import pipeline as testuploadpipline
+from .end_to_end.mnist_experiment import pipeline as e2emnistpipeline
 from .test_upload import pipeline
 
 PIPELINES_LOCATION = "pipelines"
