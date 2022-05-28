@@ -148,8 +148,9 @@ def create_serve_task(model_name, model_namespace, mount_name):
     name="MNIST E2E Test",
     description="Testin MNIST end to end pipeline"
 )
-def pipeline(name="mnist-e2e-test-ridhwan", namespace="{{workflow.namespace}}", training_steps="200"):
-    name = "{{workflow.name}}-" "mnist-e2e-test-ridhwan"
+def pipeline(name="mnist-e2e-test-ridhwan", training_steps="200"):
+    name = "{{workflow.name}}-%s" % name
+    namespace="{{workflow.namespace}}"
     katib_task = katib_experiment_factory(name, namespace, training_steps)
 
     volume_pvc = get_or_create_pvc("Create Ridhwan Volumes", "1Gi", "ridhwan-pvc-mount")

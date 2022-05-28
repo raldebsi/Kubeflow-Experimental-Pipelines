@@ -2,10 +2,9 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: mnist-e2e-test-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-27T19:22:30.098805',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-29T02:57:02.556642',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Testin MNIST end to end
       pipeline", "inputs": [{"default": "mnist-e2e-test-ridhwan", "name": "name",
-      "optional": true}, {"default": "{{workflow.namespace}}", "name": "namespace",
       "optional": true}, {"default": "200", "name": "training_steps", "optional":
       true}], "name": "MNIST E2E Test"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12}
@@ -135,9 +134,9 @@ spec:
     container:
       args:
       - --experiment-name
-      - mnist-e2e-test-ridhwan-{{workflow.uid}}
+      - '{{workflow.name}}-{{inputs.parameters.name}}'
       - --experiment-namespace
-      - '{{inputs.parameters.namespace}}'
+      - '{{workflow.namespace}}'
       - --experiment-spec
       - '{"algorithm": {"algorithmName": "random"}, "maxFailedTrialCount": 3, "maxTrialCount":
         5, "objective": {"goal": 0.001, "objectiveMetricName": "loss", "type": "minimize"},
@@ -169,7 +168,7 @@ spec:
       image: docker.io/kubeflowkatib/kubeflow-pipelines-launcher
     inputs:
       parameters:
-      - {name: namespace}
+      - {name: name}
       - {name: training_steps}
     outputs:
       parameters:
@@ -203,27 +202,27 @@ spec:
           Trial", "name": "Best Parameter Set", "type": "JsonObject"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
           "aaa275c1f14b2e4150341b14bf4792d5bb211bfb59c9af5b18ef74115ccaf0c3", "url":
           "src/pipelines/yamls/Components/katib_launcher.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Delete
-          Finished Experiment": "False", "Experiment Name": "mnist-e2e-test-ridhwan-{{workflow.uid}}",
-          "Experiment Namespace": "{{inputs.parameters.namespace}}", "Experiment Spec":
-          "{\"algorithm\": {\"algorithmName\": \"random\"}, \"maxFailedTrialCount\":
-          3, \"maxTrialCount\": 5, \"objective\": {\"goal\": 0.001, \"objectiveMetricName\":
-          \"loss\", \"type\": \"minimize\"}, \"parallelTrialCount\": 2, \"parameters\":
-          [{\"feasibleSpace\": {\"max\": 0.05, \"min\": 0.01}, \"name\": \"learning_rate\",
-          \"parameterType\": \"double\"}, {\"feasibleSpace\": {\"max\": \"100\", \"min\":
-          \"80\"}, \"name\": \"batch_size\", \"parameterType\": \"int\"}], \"trialTemplate\":
-          {\"primaryContainerName\": \"tensorflow\", \"trialParameters\": [{\"description\":
-          \"Learning rate for the training model\", \"name\": \"learningRate\", \"reference\":
-          \"learning_rate\"}, {\"description\": \"Batch size for the training model\",
-          \"name\": \"batchSize\", \"reference\": \"batch_size\"}], \"trialSpec\":
-          {\"apiVersion\": \"kubeflow.org/v1\", \"kind\": \"TFJob\", \"spec\": {\"tfReplicaSpecs\":
-          {\"Chief\": {\"replicas\": 1, \"restartPolicy\": \"OnFailure\", \"template\":
+          Finished Experiment": "False", "Experiment Name": "{{workflow.name}}-{{inputs.parameters.name}}",
+          "Experiment Namespace": "{{workflow.namespace}}", "Experiment Spec": "{\"algorithm\":
+          {\"algorithmName\": \"random\"}, \"maxFailedTrialCount\": 3, \"maxTrialCount\":
+          5, \"objective\": {\"goal\": 0.001, \"objectiveMetricName\": \"loss\", \"type\":
+          \"minimize\"}, \"parallelTrialCount\": 2, \"parameters\": [{\"feasibleSpace\":
+          {\"max\": 0.05, \"min\": 0.01}, \"name\": \"learning_rate\", \"parameterType\":
+          \"double\"}, {\"feasibleSpace\": {\"max\": \"100\", \"min\": \"80\"}, \"name\":
+          \"batch_size\", \"parameterType\": \"int\"}], \"trialTemplate\": {\"primaryContainerName\":
+          \"tensorflow\", \"trialParameters\": [{\"description\": \"Learning rate
+          for the training model\", \"name\": \"learningRate\", \"reference\": \"learning_rate\"},
+          {\"description\": \"Batch size for the training model\", \"name\": \"batchSize\",
+          \"reference\": \"batch_size\"}], \"trialSpec\": {\"apiVersion\": \"kubeflow.org/v1\",
+          \"kind\": \"TFJob\", \"spec\": {\"tfReplicaSpecs\": {\"Chief\": {\"replicas\":
+          1, \"restartPolicy\": \"OnFailure\", \"template\": {\"metadata\": {\"annotations\":
+          {\"sidecar.istio.io/inject\": \"false\"}}, \"spec\": {\"containers\": [{\"command\":
+          [\"python\", \"/opt/model.py\", \"--tf-train-steps={{inputs.parameters.training_steps}}\",
+          \"--tf-learning-rate=${trialParameters.learningRate}\", \"--tf-batch-size=${trialParameters.batchSize}\"],
+          \"image\": \"docker.io/liuhougangxa/tf-estimator-mnist\", \"name\": \"tensorflow\"}]}}},
+          \"Worker\": {\"replicas\": 1, \"restartPolicy\": \"OnFailure\", \"template\":
           {\"metadata\": {\"annotations\": {\"sidecar.istio.io/inject\": \"false\"}},
           \"spec\": {\"containers\": [{\"command\": [\"python\", \"/opt/model.py\",
-          \"--tf-train-steps={{inputs.parameters.training_steps}}\", \"--tf-learning-rate=${trialParameters.learningRate}\",
-          \"--tf-batch-size=${trialParameters.batchSize}\"], \"image\": \"docker.io/liuhougangxa/tf-estimator-mnist\",
-          \"name\": \"tensorflow\"}]}}}, \"Worker\": {\"replicas\": 1, \"restartPolicy\":
-          \"OnFailure\", \"template\": {\"metadata\": {\"annotations\": {\"sidecar.istio.io/inject\":
-          \"false\"}}, \"spec\": {\"containers\": [{\"command\": [\"python\", \"/opt/model.py\",
           \"--tf-train-steps={{inputs.parameters.training_steps}}\", \"--tf-learning-rate=${trialParameters.learningRate}\",
           \"--tf-batch-size=${trialParameters.batchSize}\"], \"image\": \"docker.io/liuhougangxa/tf-estimator-mnist\",
           \"name\": \"tensorflow\"}]}}}}}}}}", "Experiment Timeout Minutes": "60"}'}
@@ -231,9 +230,9 @@ spec:
     container:
       args:
       - --name
-      - mnist-e2e-test-ridhwan-{{workflow.uid}}
+      - '{{workflow.name}}-{{inputs.parameters.name}}'
       - --namespace
-      - '{{inputs.parameters.namespace}}'
+      - '{{workflow.namespace}}'
       - --version
       - v1
       - --activeDeadlineSeconds
@@ -272,7 +271,7 @@ spec:
       parameters:
       - {name: convert-hyperparams-Output}
       - {name: create-ridhwan-volumes-name}
-      - {name: namespace}
+      - {name: name}
       - {name: training_steps}
     metadata:
       labels:
@@ -325,10 +324,10 @@ spec:
           \"/mnt/export\", \"name\": \"model-volume\"}]}], \"volumes\": [{\"name\":
           \"model-volume\", \"persistentVolumeClaim\": {\"claimName\": \"{{inputs.parameters.create-ridhwan-volumes-name}}\"}}]}}}",
           "CleanPodPolicy": "Running", "Delete Finished Tfjob": "False", "Evaluator
-          Spec": "{}", "Name": "mnist-e2e-test-ridhwan-{{workflow.uid}}", "Namespace":
-          "{{inputs.parameters.namespace}}", "PS Spec": "{}", "Tfjob Timeout Minutes":
-          "60", "Version": "v1", "Worker Spec": "{\"replicas\": 1, \"restartPolicy\":
-          \"OnFailure\", \"template\": {\"metadata\": {\"annotations\": {\"sidecar.istio.io/inject\":
+          Spec": "{}", "Name": "{{workflow.name}}-{{inputs.parameters.name}}", "Namespace":
+          "{{workflow.namespace}}", "PS Spec": "{}", "Tfjob Timeout Minutes": "60",
+          "Version": "v1", "Worker Spec": "{\"replicas\": 1, \"restartPolicy\": \"OnFailure\",
+          \"template\": {\"metadata\": {\"annotations\": {\"sidecar.istio.io/inject\":
           \"false\"}}, \"spec\": {\"containers\": [{\"name\": \"tensorflow\", \"image\":
           \"docker.io/liuhougangxa/tf-estimator-mnist\", \"command\": [\"sh\", \"-c\"],
           \"args\": [\"python /opt/model.py --tf-export-dir=/mnt/export --tf-train-steps={{inputs.parameters.training_steps}}
@@ -337,7 +336,7 @@ spec:
   - name: mnist-e2e-test
     inputs:
       parameters:
-      - {name: namespace}
+      - {name: name}
       - {name: training_steps}
     dag:
       tasks:
@@ -352,7 +351,7 @@ spec:
         template: katib-launch-experiment
         arguments:
           parameters:
-          - {name: namespace, value: '{{inputs.parameters.namespace}}'}
+          - {name: name, value: '{{inputs.parameters.name}}'}
           - {name: training_steps, value: '{{inputs.parameters.training_steps}}'}
       - name: kubeflow-launch-tfjob
         template: kubeflow-launch-tfjob
@@ -361,7 +360,7 @@ spec:
           parameters:
           - {name: convert-hyperparams-Output, value: '{{tasks.convert-hyperparams.outputs.parameters.convert-hyperparams-Output}}'}
           - {name: create-ridhwan-volumes-name, value: '{{tasks.create-ridhwan-volumes.outputs.parameters.create-ridhwan-volumes-name}}'}
-          - {name: namespace, value: '{{inputs.parameters.namespace}}'}
+          - {name: name, value: '{{inputs.parameters.name}}'}
           - {name: training_steps, value: '{{inputs.parameters.training_steps}}'}
       - name: serve-a-model-with-kserve
         template: serve-a-model-with-kserve
@@ -369,7 +368,7 @@ spec:
         arguments:
           parameters:
           - {name: create-ridhwan-volumes-name, value: '{{tasks.create-ridhwan-volumes.outputs.parameters.create-ridhwan-volumes-name}}'}
-          - {name: namespace, value: '{{inputs.parameters.namespace}}'}
+          - {name: name, value: '{{inputs.parameters.name}}'}
   - name: serve-a-model-with-kserve
     container:
       args:
@@ -404,8 +403,8 @@ spec:
         metadata:
           annotations:
             sidecar.istio.io/inject: 'false'
-          name: mnist-e2e-test-ridhwan-{{workflow.uid}}
-          namespace: '{{inputs.parameters.namespace}}'
+          name: '{{workflow.name}}-{{inputs.parameters.name}}'
+          namespace: '{{workflow.namespace}}'
         spec:
           predictor:
             tensorflow:
@@ -423,7 +422,7 @@ spec:
     inputs:
       parameters:
       - {name: create-ridhwan-volumes-name}
-      - {name: namespace}
+      - {name: name}
     outputs:
       artifacts:
       - {name: serve-a-model-with-kserve-InferenceService-Status, path: /tmp/outputs/InferenceService_Status/data}
@@ -480,14 +479,13 @@ spec:
           "apply", "Autoscaling Target": "0", "Canary Traffic Percent": "100", "Custom
           Model Spec": "{}", "Enable Istio Sidecar": "True", "Framework": "", "InferenceService
           YAML": "apiVersion: serving.kserve.io/v1beta1\nkind: InferenceService\nmetadata:\n  annotations:\n    sidecar.istio.io/inject:
-          ''false''\n  name: mnist-e2e-test-ridhwan-{{workflow.uid}}\n  namespace:
-          ''{{inputs.parameters.namespace}}''\nspec:\n  predictor:\n    tensorflow:\n      storageUri:
+          ''false''\n  name: ''{{workflow.name}}-{{inputs.parameters.name}}''\n  namespace:
+          ''{{workflow.namespace}}''\nspec:\n  predictor:\n    tensorflow:\n      storageUri:
           pvc://{{inputs.parameters.create-ridhwan-volumes-name}}/\n", "Max Replicas":
           "-1", "Min Replicas": "-1", "Model Name": "", "Model URI": "", "Namespace":
           "", "Request Timeout": "60", "Service Account": "", "Watch Timeout": "300"}'}
   arguments:
     parameters:
     - {name: name, value: mnist-e2e-test-ridhwan}
-    - {name: namespace, value: '{{workflow.namespace}}'}
     - {name: training_steps, value: '200'}
   serviceAccountName: pipeline-runner
