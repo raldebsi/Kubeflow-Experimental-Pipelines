@@ -15,17 +15,21 @@ def spec_from_file_format(yaml_file, **kwargs):
 
 def get_volume_by_name(name) -> PipelineVolume:
     # Get volume
-    volume_name = sanitize_k8s_name(name)
+    name = str(name)
+    is_pipeline_name = name.startswith('{{') and name.endswith('}}')
+    volume_name = sanitize_k8s_name(name) if not is_pipeline_name else name
     unique_volume_name = "{{workflow.name}}-%s" % volume_name
     mount_vol = PipelineVolume(
         name=unique_volume_name, # Parameter name, if found then it will be reused. Therefore it should be unique.
-        pvc=volume_name,
+        pvc=name,
         volume=None, # type: ignore 
     )
 
     return mount_vol
 
 def get_or_create_pvc(name: str, size_: str, resource: str, randomize: bool = False):
+    if not resource and not randomize:
+        raise ValueError("Either resource or randomize should be provided")
     return dsl.VolumeOp(
         name=name,  # Operation Unique Name
                     # If operation exists then it will be reused.
