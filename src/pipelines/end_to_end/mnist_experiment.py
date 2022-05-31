@@ -129,7 +129,7 @@ def create_tfjob_task(job_name, job_namespace, steps, hyperparams, mount_name):
 def create_serve_task(model_name, model_namespace, mount_name):
     infer_service = spec_from_file_format(
         "src/pipelines/yamls/Specs/KFServe.yaml",
-        apiVersion="serving.kserve.io/v1beta1",
+        apiVersion="serving.kubeflow.org/v1beta1",
         modelName=model_name,
         modelNamespace=model_namespace,
         volumeResourceName=mount_name,
