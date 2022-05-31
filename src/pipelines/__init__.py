@@ -13,7 +13,6 @@ from .volume_test.write import write_volume_pipeline
 from .volume_test.read import read_volume_pipeline
 from .test_upload import pipeline as testuploadpipline
 from .end_to_end.mnist_experiment import pipeline as e2emnistpipeline
-from .test_upload import pipeline
 
 PIPELINES_LOCATION = "pipelines"
 HASH_LOCATION = os.path.join(PIPELINES_LOCATION, "hash.md5")
