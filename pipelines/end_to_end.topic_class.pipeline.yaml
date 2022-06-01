@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: end-to-end-hugging-face-topic-classifier-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-31T20:53:02.392168',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-06-01T17:59:40.879216',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "End to End Topic Classiciation
       using HuggingFace Framework and CamelBert model", "inputs": [{"name": "experiment_name",
       "type": "String"}, {"name": "volume_name", "type": "String"}, {"name": "dataset_name",
@@ -17,6 +17,197 @@ metadata:
 spec:
   entrypoint: end-to-end-hugging-face-topic-classifier
   templates:
+  - name: convert-run-args
+    container:
+      args: [--args, '{{inputs.parameters.get-run-args-train_args}}', --extra-args,
+        '{{inputs.parameters.get-run-args-extra_args}}', '----output-paths', /tmp/outputs/model/data,
+        /tmp/outputs/tf/data, /tmp/outputs/seq/data, /tmp/outputs/batch/data, /tmp/outputs/lr/data,
+        /tmp/outputs/epoch/data, /tmp/outputs/out/data, /tmp/outputs/save/data, /tmp/outputs/extra_args/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def convert_run_args(args, extra_args):
+            print("Input Dict")
+            print(args)
+            return \
+                str     (args["model_name_or_path"]),           \
+                str     (args["train_file"]),                   \
+                int     (args["max_seq_length"]),               \
+                int     (args["per_device_train_batch_size"]),  \
+                float   (args["learning_rate"]),                \
+                int     (args["num_train_epochs"]),             \
+                str     (args["output_dir"]),                   \
+                int     (args["save_steps"]),                   \
+                " ".join("--{} {}".format(k, v) if v is not "" else "--" + k for k, v in extra_args.items())
+
+        def _serialize_float(float_value: float) -> str:
+            if isinstance(float_value, str):
+                return float_value
+            if not isinstance(float_value, (float, int)):
+                raise TypeError('Value "{}" has type "{}" instead of float.'.format(
+                    str(float_value), str(type(float_value))))
+            return str(float_value)
+
+        def _serialize_int(int_value: int) -> str:
+            if isinstance(int_value, str):
+                return int_value
+            if not isinstance(int_value, int):
+                raise TypeError('Value "{}" has type "{}" instead of int.'.format(
+                    str(int_value), str(type(int_value))))
+            return str(int_value)
+
+        def _serialize_str(str_value: str) -> str:
+            if not isinstance(str_value, str):
+                raise TypeError('Value "{}" has type "{}" instead of str.'.format(
+                    str(str_value), str(type(str_value))))
+            return str_value
+
+        import json
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Convert run args', description='')
+        _parser.add_argument("--args", dest="args", type=json.loads, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--extra-args", dest="extra_args", type=json.loads, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=9)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = convert_run_args(**_parsed_args)
+
+        _output_serializers = [
+            _serialize_str,
+            _serialize_str,
+            _serialize_int,
+            _serialize_int,
+            _serialize_float,
+            _serialize_int,
+            _serialize_str,
+            _serialize_int,
+            _serialize_str,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: python:3.7
+    inputs:
+      parameters:
+      - {name: get-run-args-extra_args}
+      - {name: get-run-args-train_args}
+    outputs:
+      parameters:
+      - name: convert-run-args-batch
+        valueFrom: {path: /tmp/outputs/batch/data}
+      - name: convert-run-args-epoch
+        valueFrom: {path: /tmp/outputs/epoch/data}
+      - name: convert-run-args-extra_args
+        valueFrom: {path: /tmp/outputs/extra_args/data}
+      - name: convert-run-args-lr
+        valueFrom: {path: /tmp/outputs/lr/data}
+      - name: convert-run-args-model
+        valueFrom: {path: /tmp/outputs/model/data}
+      - name: convert-run-args-out
+        valueFrom: {path: /tmp/outputs/out/data}
+      - name: convert-run-args-save
+        valueFrom: {path: /tmp/outputs/save/data}
+      - name: convert-run-args-seq
+        valueFrom: {path: /tmp/outputs/seq/data}
+      - name: convert-run-args-tf
+        valueFrom: {path: /tmp/outputs/tf/data}
+      artifacts:
+      - {name: convert-run-args-batch, path: /tmp/outputs/batch/data}
+      - {name: convert-run-args-epoch, path: /tmp/outputs/epoch/data}
+      - {name: convert-run-args-extra_args, path: /tmp/outputs/extra_args/data}
+      - {name: convert-run-args-lr, path: /tmp/outputs/lr/data}
+      - {name: convert-run-args-model, path: /tmp/outputs/model/data}
+      - {name: convert-run-args-out, path: /tmp/outputs/out/data}
+      - {name: convert-run-args-save, path: /tmp/outputs/save/data}
+      - {name: convert-run-args-seq, path: /tmp/outputs/seq/data}
+      - {name: convert-run-args-tf, path: /tmp/outputs/tf/data}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--args", {"inputValue": "args"}, "--extra-args", {"inputValue":
+          "extra_args"}, "----output-paths", {"outputPath": "model"}, {"outputPath":
+          "tf"}, {"outputPath": "seq"}, {"outputPath": "batch"}, {"outputPath": "lr"},
+          {"outputPath": "epoch"}, {"outputPath": "out"}, {"outputPath": "save"},
+          {"outputPath": "extra_args"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf
+          \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+          "def convert_run_args(args, extra_args):\n    print(\"Input Dict\")\n    print(args)\n    return
+          \\\n        str     (args[\"model_name_or_path\"]),           \\\n        str     (args[\"train_file\"]),                   \\\n        int     (args[\"max_seq_length\"]),               \\\n        int     (args[\"per_device_train_batch_size\"]),  \\\n        float   (args[\"learning_rate\"]),                \\\n        int     (args[\"num_train_epochs\"]),             \\\n        str     (args[\"output_dir\"]),                   \\\n        int     (args[\"save_steps\"]),                   \\\n        \"
+          \".join(\"--{} {}\".format(k, v) if v is not \"\" else \"--\" + k for k,
+          v in extra_args.items())\n\ndef _serialize_float(float_value: float) ->
+          str:\n    if isinstance(float_value, str):\n        return float_value\n    if
+          not isinstance(float_value, (float, int)):\n        raise TypeError(''Value
+          \"{}\" has type \"{}\" instead of float.''.format(\n            str(float_value),
+          str(type(float_value))))\n    return str(float_value)\n\ndef _serialize_int(int_value:
+          int) -> str:\n    if isinstance(int_value, str):\n        return int_value\n    if
+          not isinstance(int_value, int):\n        raise TypeError(''Value \"{}\"
+          has type \"{}\" instead of int.''.format(\n            str(int_value), str(type(int_value))))\n    return
+          str(int_value)\n\ndef _serialize_str(str_value: str) -> str:\n    if not
+          isinstance(str_value, str):\n        raise TypeError(''Value \"{}\" has
+          type \"{}\" instead of str.''.format(\n            str(str_value), str(type(str_value))))\n    return
+          str_value\n\nimport json\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Convert
+          run args'', description='''')\n_parser.add_argument(\"--args\", dest=\"args\",
+          type=json.loads, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--extra-args\",
+          dest=\"extra_args\", type=json.loads, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=9)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = convert_run_args(**_parsed_args)\n\n_output_serializers
+          = [\n    _serialize_str,\n    _serialize_str,\n    _serialize_int,\n    _serialize_int,\n    _serialize_float,\n    _serialize_int,\n    _serialize_str,\n    _serialize_int,\n    _serialize_str,\n\n]\n\nimport
+          os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "args", "type": "JsonObject"},
+          {"name": "extra_args", "type": "JsonObject"}], "name": "Convert run args",
+          "outputs": [{"name": "model", "type": "String"}, {"name": "tf", "type":
+          "String"}, {"name": "seq", "type": "Integer"}, {"name": "batch", "type":
+          "Integer"}, {"name": "lr", "type": "Float"}, {"name": "epoch", "type": "Integer"},
+          {"name": "out", "type": "String"}, {"name": "save", "type": "Integer"},
+          {"name": "extra_args", "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"args": "{{inputs.parameters.get-run-args-train_args}}",
+          "extra_args": "{{inputs.parameters.get-run-args-extra_args}}"}'}
+  - name: create-volumes-experimente2e
+    resource:
+      action: create
+      manifest: |
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: '{{workflow.name}}-{{inputs.parameters.volume_name}}'
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+    inputs:
+      parameters:
+      - {name: volume_name}
+    outputs:
+      parameters:
+      - name: create-volumes-experimente2e-manifest
+        valueFrom: {jsonPath: '{}'}
+      - name: create-volumes-experimente2e-name
+        valueFrom: {jsonPath: '{.metadata.name}'}
+      - name: create-volumes-experimente2e-size
+        valueFrom: {jsonPath: '{.status.capacity.storage}'}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
   - name: end-to-end-hugging-face-topic-classifier
     inputs:
       parameters:
@@ -31,10 +222,24 @@ spec:
       - {name: volume_name}
     dag:
       tasks:
-      - name: get-run-args
-        template: get-run-args
+      - name: convert-run-args
+        template: convert-run-args
+        dependencies: [get-run-args]
         arguments:
           parameters:
+          - {name: get-run-args-extra_args, value: '{{tasks.get-run-args.outputs.parameters.get-run-args-extra_args}}'}
+          - {name: get-run-args-train_args, value: '{{tasks.get-run-args.outputs.parameters.get-run-args-train_args}}'}
+      - name: create-volumes-experimente2e
+        template: create-volumes-experimente2e
+        arguments:
+          parameters:
+          - {name: volume_name, value: '{{inputs.parameters.volume_name}}'}
+      - name: get-run-args
+        template: get-run-args
+        dependencies: [create-volumes-experimente2e]
+        arguments:
+          parameters:
+          - {name: create-volumes-experimente2e-name, value: '{{tasks.create-volumes-experimente2e.outputs.parameters.create-volumes-experimente2e-name}}'}
           - {name: dataset_name, value: '{{inputs.parameters.dataset_name}}'}
           - {name: device_batch_size, value: '{{inputs.parameters.device_batch_size}}'}
           - {name: epochs, value: '{{inputs.parameters.epochs}}'}
@@ -43,14 +248,35 @@ spec:
           - {name: learning_rate, value: '{{inputs.parameters.learning_rate}}'}
           - {name: max_sequence_length, value: '{{inputs.parameters.max_sequence_length}}'}
           - {name: seed, value: '{{inputs.parameters.seed}}'}
-          - {name: volume_name, value: '{{inputs.parameters.volume_name}}'}
       - name: huggingface-trainer
         template: huggingface-trainer
-        dependencies: [get-run-args]
+        dependencies: [convert-run-args, create-volumes-experimente2e]
         arguments:
           parameters:
-          - {name: get-run-args-Output, value: '{{tasks.get-run-args.outputs.parameters.get-run-args-Output}}'}
-          - {name: volume_name, value: '{{inputs.parameters.volume_name}}'}
+          - {name: convert-run-args-batch, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-batch}}'}
+          - {name: convert-run-args-epoch, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-epoch}}'}
+          - {name: convert-run-args-extra_args, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-extra_args}}'}
+          - {name: convert-run-args-lr, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-lr}}'}
+          - {name: convert-run-args-model, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-model}}'}
+          - {name: convert-run-args-out, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-out}}'}
+          - {name: convert-run-args-save, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-save}}'}
+          - {name: convert-run-args-seq, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-seq}}'}
+          - {name: convert-run-args-tf, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-tf}}'}
+          - {name: create-volumes-experimente2e-name, value: '{{tasks.create-volumes-experimente2e.outputs.parameters.create-volumes-experimente2e-name}}'}
+      - name: print-huggingface-trainer
+        template: print-huggingface-trainer
+        dependencies: [convert-run-args]
+        arguments:
+          parameters:
+          - {name: convert-run-args-batch, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-batch}}'}
+          - {name: convert-run-args-epoch, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-epoch}}'}
+          - {name: convert-run-args-extra_args, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-extra_args}}'}
+          - {name: convert-run-args-lr, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-lr}}'}
+          - {name: convert-run-args-model, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-model}}'}
+          - {name: convert-run-args-out, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-out}}'}
+          - {name: convert-run-args-save, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-save}}'}
+          - {name: convert-run-args-seq, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-seq}}'}
+          - {name: convert-run-args-tf, value: '{{tasks.convert-run-args.outputs.parameters.convert-run-args-tf}}'}
   - name: get-run-args
     container:
       args: [--dataset-name, '{{inputs.parameters.dataset_name}}', --has-valid, '{{inputs.parameters.has_valid}}',
@@ -58,7 +284,7 @@ spec:
         '{{inputs.parameters.device_batch_size}}', --learn-rate, '{{inputs.parameters.learning_rate}}',
         --epochs, '{{inputs.parameters.epochs}}', --seed, '{{inputs.parameters.seed}}',
         --experiment-name, '{{inputs.parameters.experiment_name}}', '----output-paths',
-        /tmp/outputs/Output/data]
+        /tmp/outputs/train_args/data, /tmp/outputs/extra_args/data]
       command:
       - sh
       - -ec
@@ -70,21 +296,26 @@ spec:
         def get_run_args(dataset_name, has_valid, seq_len, batch_size_dev, learn_rate, epochs, seed, experiment_name):
             import os
             import json
-            args = {}
+            args = {"extra": {}}
+
+            args["save_steps"] = 1000
+            args["extra"]["overwrite_output_dir"] = ""
 
             model_name_or_path = "CAMeL-Lab/bert-base-arabic-camelbert-msa-sixteenth"
             args["model_name_or_path"] = model_name_or_path
 
             train_file = '/store/datasets/{}/train.json'.format(dataset_name)
-            args["train-file"] = train_file
+            args["train_file"] = train_file
+            args["extra"]["do_train"] = ""
             # args.append("--train_file={}".format(train_file))
 
             if has_valid:
                 valid_file = '/store/datasets/{}/valid.json'.format(dataset_name)
-                args["valid-file"] = valid_file
+                args["extra"]["validation_file"] = valid_file
+                args["extra"]["do_eval"] = ""
                 # args.append("--valid_file={}".format(valid_file))
 
-            args["max_seq_length-len"] = seq_len
+            args["max_seq_length"] = seq_len
             # args.append("--max_seq_length={}".format(seq_len))
 
             args["per_device_train_batch_size"] = batch_size_dev
@@ -101,25 +332,35 @@ spec:
             args["output_dir"] = output_dir
             # args.append("--output_dir={}".format(output_dir))
 
-            try:
-                seed = int(seed)
-                args["seed"] = seed
-                # args.append("--seed={}".format(seed))
-            except ValueError:
-                pass
+            if seed:
+                args["extra"]["seed"] = hash(seed) # Hash of int is the same as int, hash of str is int
 
             # write the args to a file
             with open(os.path.join(output_dir, "{}-{}-best-hps.json".format(experiment_name, dataset_name)), "w") as f:
                 json.dump(args, f)
 
-            # convert args to string
-            return " ".join("--{}={}".format(k, v) for k, v in args.items())
+            print("Args:")
+            print(args)
 
-        def _serialize_str(str_value: str) -> str:
-            if not isinstance(str_value, str):
-                raise TypeError('Value "{}" has type "{}" instead of str.'.format(
-                    str(str_value), str(type(str_value))))
-            return str_value
+            # convert args to string
+            # return " ".join("--{} {}".format(k, v) for k, v in args.items())
+
+            return args, args.pop("extra")
+
+        def _serialize_json(obj) -> str:
+            if isinstance(obj, str):
+                return obj
+            import json
+
+            def default_serializer(obj):
+                if hasattr(obj, 'to_struct'):
+                    return obj.to_struct()
+                else:
+                    raise TypeError(
+                        "Object of type '%s' is not JSON serializable and does not have .to_struct() method."
+                        % obj.__class__.__name__)
+
+            return json.dumps(obj, default=default_serializer, sort_keys=True)
 
         import argparse
         _parser = argparse.ArgumentParser(prog='Get run args', description='')
@@ -131,16 +372,15 @@ spec:
         _parser.add_argument("--epochs", dest="epochs", type=str, required=True, default=argparse.SUPPRESS)
         _parser.add_argument("--seed", dest="seed", type=str, required=True, default=argparse.SUPPRESS)
         _parser.add_argument("--experiment-name", dest="experiment_name", type=str, required=True, default=argparse.SUPPRESS)
-        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=2)
         _parsed_args = vars(_parser.parse_args())
         _output_files = _parsed_args.pop("_output_paths", [])
 
         _outputs = get_run_args(**_parsed_args)
 
-        _outputs = [_outputs]
-
         _output_serializers = [
-            _serialize_str,
+            _serialize_json,
+            _serialize_json,
 
         ]
 
@@ -154,9 +394,10 @@ spec:
                 f.write(_output_serializers[idx](_outputs[idx]))
       image: python:3.7
       volumeMounts:
-      - {mountPath: /store, name: my-bind-volume}
+      - {mountPath: /store, name: create-volumes-experimente2e}
     inputs:
       parameters:
+      - {name: create-volumes-experimente2e-name}
       - {name: dataset_name}
       - {name: device_batch_size}
       - {name: epochs}
@@ -165,13 +406,15 @@ spec:
       - {name: learning_rate}
       - {name: max_sequence_length}
       - {name: seed}
-      - {name: volume_name}
     outputs:
       parameters:
-      - name: get-run-args-Output
-        valueFrom: {path: /tmp/outputs/Output/data}
+      - name: get-run-args-extra_args
+        valueFrom: {path: /tmp/outputs/extra_args/data}
+      - name: get-run-args-train_args
+        valueFrom: {path: /tmp/outputs/train_args/data}
       artifacts:
-      - {name: get-run-args-Output, path: /tmp/outputs/Output/data}
+      - {name: get-run-args-extra_args, path: /tmp/outputs/extra_args/data}
+      - {name: get-run-args-train_args, path: /tmp/outputs/train_args/data}
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
@@ -183,29 +426,35 @@ spec:
           {"inputValue": "batch_size_dev"}, "--learn-rate", {"inputValue": "learn_rate"},
           "--epochs", {"inputValue": "epochs"}, "--seed", {"inputValue": "seed"},
           "--experiment-name", {"inputValue": "experiment_name"}, "----output-paths",
-          {"outputPath": "Output"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf
-          \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
-          "def get_run_args(dataset_name, has_valid, seq_len, batch_size_dev, learn_rate,
-          epochs, seed, experiment_name):\n    import os\n    import json\n    args
-          = {}\n\n    model_name_or_path = \"CAMeL-Lab/bert-base-arabic-camelbert-msa-sixteenth\"\n    args[\"model_name_or_path\"]
-          = model_name_or_path\n\n    train_file = ''/store/datasets/{}/train.json''.format(dataset_name)\n    args[\"train-file\"]
-          = train_file\n    # args.append(\"--train_file={}\".format(train_file))\n\n    if
-          has_valid:\n        valid_file = ''/store/datasets/{}/valid.json''.format(dataset_name)\n        args[\"valid-file\"]
-          = valid_file\n        # args.append(\"--valid_file={}\".format(valid_file))\n\n    args[\"max_seq_length-len\"]
+          {"outputPath": "train_args"}, {"outputPath": "extra_args"}], "command":
+          ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
+          -u \"$program_path\" \"$@\"\n", "def get_run_args(dataset_name, has_valid,
+          seq_len, batch_size_dev, learn_rate, epochs, seed, experiment_name):\n    import
+          os\n    import json\n    args = {\"extra\": {}}\n\n    args[\"save_steps\"]
+          = 1000\n    args[\"extra\"][\"overwrite_output_dir\"] = \"\"\n\n    model_name_or_path
+          = \"CAMeL-Lab/bert-base-arabic-camelbert-msa-sixteenth\"\n    args[\"model_name_or_path\"]
+          = model_name_or_path\n\n    train_file = ''/store/datasets/{}/train.json''.format(dataset_name)\n    args[\"train_file\"]
+          = train_file\n    args[\"extra\"][\"do_train\"] = \"\"\n    # args.append(\"--train_file={}\".format(train_file))\n\n    if
+          has_valid:\n        valid_file = ''/store/datasets/{}/valid.json''.format(dataset_name)\n        args[\"extra\"][\"validation_file\"]
+          = valid_file\n        args[\"extra\"][\"do_eval\"] = \"\"\n        # args.append(\"--valid_file={}\".format(valid_file))\n\n    args[\"max_seq_length\"]
           = seq_len\n    # args.append(\"--max_seq_length={}\".format(seq_len))\n\n    args[\"per_device_train_batch_size\"]
           = batch_size_dev\n    # args.append(\"--per_device_train_batch_size={}\".format(batch_size_dev))\n\n    args[\"learning_rate\"]
           = learn_rate\n    # args.append(\"--learning_rate={}\".format(learn_rate))\n\n    args[\"num_train_epochs\"]
           = epochs\n    # args.append(\"--num_train_epochs={}\".format(epochs))\n\n    output_dir
           = ''/store/{}/outputs/{}''.format(experiment_name, dataset_name)\n    os.makedirs(output_dir,
-          exist_ok=True)\n    args[\"output_dir\"] = output_dir\n    # args.append(\"--output_dir={}\".format(output_dir))\n\n    try:\n        seed
-          = int(seed)\n        args[\"seed\"] = seed\n        # args.append(\"--seed={}\".format(seed))\n    except
-          ValueError:\n        pass\n\n    # write the args to a file\n    with open(os.path.join(output_dir,
-          \"{}-{}-best-hps.json\".format(experiment_name, dataset_name)), \"w\") as
-          f:\n        json.dump(args, f)\n\n    # convert args to string\n    return
-          \" \".join(\"--{}={}\".format(k, v) for k, v in args.items())\n\ndef _serialize_str(str_value:
-          str) -> str:\n    if not isinstance(str_value, str):\n        raise TypeError(''Value
-          \"{}\" has type \"{}\" instead of str.''.format(\n            str(str_value),
-          str(type(str_value))))\n    return str_value\n\nimport argparse\n_parser
+          exist_ok=True)\n    args[\"output_dir\"] = output_dir\n    # args.append(\"--output_dir={}\".format(output_dir))\n\n    if
+          seed:\n        args[\"extra\"][\"seed\"] = hash(seed) # Hash of int is the
+          same as int, hash of str is int\n\n    # write the args to a file\n    with
+          open(os.path.join(output_dir, \"{}-{}-best-hps.json\".format(experiment_name,
+          dataset_name)), \"w\") as f:\n        json.dump(args, f)\n\n    print(\"Args:\")\n    print(args)\n\n    #
+          convert args to string\n    # return \" \".join(\"--{} {}\".format(k, v)
+          for k, v in args.items())\n\n    return args, args.pop(\"extra\")\n\ndef
+          _serialize_json(obj) -> str:\n    if isinstance(obj, str):\n        return
+          obj\n    import json\n\n    def default_serializer(obj):\n        if hasattr(obj,
+          ''to_struct''):\n            return obj.to_struct()\n        else:\n            raise
+          TypeError(\n                \"Object of type ''%s'' is not JSON serializable
+          and does not have .to_struct() method.\"\n                % obj.__class__.__name__)\n\n    return
+          json.dumps(obj, default=default_serializer, sort_keys=True)\n\nimport argparse\n_parser
           = argparse.ArgumentParser(prog=''Get run args'', description='''')\n_parser.add_argument(\"--dataset-name\",
           dest=\"dataset_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--has-valid\",
           dest=\"has_valid\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--seq-len\",
@@ -215,34 +464,48 @@ spec:
           dest=\"epochs\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--seed\",
           dest=\"seed\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--experiment-name\",
           dest=\"experiment_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
-          dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
-          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = get_run_args(**_parsed_args)\n\n_outputs
-          = [_outputs]\n\n_output_serializers = [\n    _serialize_str,\n\n]\n\nimport
-          os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          dest=\"_output_paths\", type=str, nargs=2)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = get_run_args(**_parsed_args)\n\n_output_serializers
+          = [\n    _serialize_json,\n    _serialize_json,\n\n]\n\nimport os\nfor idx,
+          output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
           OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
           "image": "python:3.7"}}, "inputs": [{"name": "dataset_name"}, {"name": "has_valid"},
           {"name": "seq_len"}, {"name": "batch_size_dev"}, {"name": "learn_rate"},
           {"name": "epochs"}, {"name": "seed"}, {"name": "experiment_name"}], "name":
-          "Get run args", "outputs": [{"name": "Output", "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{}',
+          "Get run args", "outputs": [{"name": "train_args", "type": "JsonObject"},
+          {"name": "extra_args", "type": "JsonObject"}]}', pipelines.kubeflow.org/component_ref: '{}',
         pipelines.kubeflow.org/arguments.parameters: '{"batch_size_dev": "{{inputs.parameters.device_batch_size}}",
           "dataset_name": "{{inputs.parameters.dataset_name}}", "epochs": "{{inputs.parameters.epochs}}",
           "experiment_name": "{{inputs.parameters.experiment_name}}", "has_valid":
           "{{inputs.parameters.has_valid}}", "learn_rate": "{{inputs.parameters.learning_rate}}",
           "seed": "{{inputs.parameters.seed}}", "seq_len": "{{inputs.parameters.max_sequence_length}}"}'}
     volumes:
-    - name: my-bind-volume
-      persistentVolumeClaim: {claimName: '{{inputs.parameters.volume_name}}'}
+    - name: create-volumes-experimente2e
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.create-volumes-experimente2e-name}}'}
   - name: huggingface-trainer
     container:
-      args: ['{{inputs.parameters.get-run-args-Output}}']
-      command: [python3, /workspace/train.py]
+      args: [--model_name_or_path, '{{inputs.parameters.convert-run-args-model}}',
+        --train_file, '{{inputs.parameters.convert-run-args-tf}}', --max_seq_length,
+        '{{inputs.parameters.convert-run-args-seq}}', --per_device_train_batch_size,
+        '{{inputs.parameters.convert-run-args-batch}}', --num_train_epochs, '{{inputs.parameters.convert-run-args-epoch}}',
+        --learning_rate, '{{inputs.parameters.convert-run-args-lr}}', --save_steps,
+        '{{inputs.parameters.convert-run-args-save}}', --output_dir, '{{inputs.parameters.convert-run-args-out}}']
+      command: [python3, /workspace/train.py, '{{inputs.parameters.convert-run-args-extra_args}}']
       image: abdullahsaal/hf_train@sha256:fb30378e91fba55f29e4cba84f74a90e12b6a02f1da1e39d4fc339c3bd79276c
       volumeMounts:
-      - {mountPath: /store, name: my-bind-volume}
+      - {mountPath: /store, name: create-volumes-experimente2e}
     inputs:
       parameters:
-      - {name: get-run-args-Output}
-      - {name: volume_name}
+      - {name: convert-run-args-batch}
+      - {name: convert-run-args-epoch}
+      - {name: convert-run-args-extra_args}
+      - {name: convert-run-args-lr}
+      - {name: convert-run-args-model}
+      - {name: convert-run-args-out}
+      - {name: convert-run-args-save}
+      - {name: convert-run-args-seq}
+      - {name: convert-run-args-tf}
+      - {name: create-volumes-experimente2e-name}
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
@@ -250,16 +513,88 @@ spec:
         pipelines.kubeflow.org/enable_caching: "true"
       annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Launches
           a single task to train a HuggingFace model.", "implementation": {"container":
-          {"args": [{"inputValue": "Params"}], "command": ["python3", "/workspace/train.py"],
-          "image": "abdullahsaal/hf_train@sha256:fb30378e91fba55f29e4cba84f74a90e12b6a02f1da1e39d4fc339c3bd79276c"}},
-          "inputs": [{"description": "The parameters for the training job.", "name":
-          "Params", "type": "String"}], "name": "HuggingFace Trainer"}', pipelines.kubeflow.org/component_ref: '{"digest":
-          "42864fcaebd3d08c487818576691cceced98a1b453049468d07a21816c02b329", "url":
-          "src/pipelines/yamls/Components/hf_trainer_internal.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Params":
-          "{{inputs.parameters.get-run-args-Output}}"}'}
+          {"args": ["--model_name_or_path", {"inputValue": "Model"}, "--train_file",
+          {"inputValue": "Train File"}, "--max_seq_length", {"inputValue": "Max Seq
+          Len"}, "--per_device_train_batch_size", {"inputValue": "Batch Size"}, "--num_train_epochs",
+          {"inputValue": "Epochs"}, "--learning_rate", {"inputValue": "Learning Rate"},
+          "--save_steps", {"inputValue": "Save Steps"}, "--output_dir", {"inputValue":
+          "Save Path"}], "command": ["python3", "/workspace/train.py", {"inputValue":
+          "Extra Params"}], "image": "abdullahsaal/hf_train@sha256:fb30378e91fba55f29e4cba84f74a90e12b6a02f1da1e39d4fc339c3bd79276c"}},
+          "inputs": [{"description": "The extra parameters for the training job.",
+          "name": "Extra Params", "type": "String"}, {"description": "The path to
+          a model or the name from HF", "name": "Model", "type": "String"}, {"description":
+          "The path to the training file.", "name": "Train File", "type": "String"},
+          {"description": "The maximum sequence length.", "name": "Max Seq Len", "type":
+          "Integer"}, {"description": "The batch size.", "name": "Batch Size", "type":
+          "Integer"}, {"description": "The number of epochs.", "name": "Epochs", "type":
+          "Integer"}, {"description": "The learning rate.", "name": "Learning Rate",
+          "type": "Float"}, {"description": "The number of steps between saving checkpoints.",
+          "name": "Save Steps", "type": "Integer"}, {"description": "The path to save
+          the model.", "name": "Save Path", "type": "String"}], "name": "HuggingFace
+          Trainer"}', pipelines.kubeflow.org/component_ref: '{"digest": "0f7d055a77f5f50af3d1a222c38c665d6ef8396aa3b81a6b4766fefa9d1e22bd",
+          "url": "src/pipelines/yamls/Components/hf_trainer_internal.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Batch
+          Size": "{{inputs.parameters.convert-run-args-batch}}", "Epochs": "{{inputs.parameters.convert-run-args-epoch}}",
+          "Extra Params": "{{inputs.parameters.convert-run-args-extra_args}}", "Learning
+          Rate": "{{inputs.parameters.convert-run-args-lr}}", "Max Seq Len": "{{inputs.parameters.convert-run-args-seq}}",
+          "Model": "{{inputs.parameters.convert-run-args-model}}", "Save Path": "{{inputs.parameters.convert-run-args-out}}",
+          "Save Steps": "{{inputs.parameters.convert-run-args-save}}", "Train File":
+          "{{inputs.parameters.convert-run-args-tf}}"}'}
     volumes:
-    - name: my-bind-volume
-      persistentVolumeClaim: {claimName: '{{inputs.parameters.volume_name}}'}
+    - name: create-volumes-experimente2e
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.create-volumes-experimente2e-name}}'}
+  - name: print-huggingface-trainer
+    container:
+      args: [--model_name_or_path, '{{inputs.parameters.convert-run-args-model}}',
+        --train_file, '{{inputs.parameters.convert-run-args-tf}}', --max_seq_length,
+        '{{inputs.parameters.convert-run-args-seq}}', --per_device_train_batch_size,
+        '{{inputs.parameters.convert-run-args-batch}}', --num_train_epochs, '{{inputs.parameters.convert-run-args-epoch}}',
+        --learning_rate, '{{inputs.parameters.convert-run-args-lr}}', --save_steps,
+        '{{inputs.parameters.convert-run-args-save}}', --output_dir, '{{inputs.parameters.convert-run-args-out}}']
+      command: [echo, /workspace/train.py, '{{inputs.parameters.convert-run-args-extra_args}}']
+      image: abdullahsaal/hf_train@sha256:fb30378e91fba55f29e4cba84f74a90e12b6a02f1da1e39d4fc339c3bd79276c
+    inputs:
+      parameters:
+      - {name: convert-run-args-batch}
+      - {name: convert-run-args-epoch}
+      - {name: convert-run-args-extra_args}
+      - {name: convert-run-args-lr}
+      - {name: convert-run-args-model}
+      - {name: convert-run-args-out}
+      - {name: convert-run-args-save}
+      - {name: convert-run-args-seq}
+      - {name: convert-run-args-tf}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Prints
+          the expected arguments and commands for HuggingFace Trainer", "implementation":
+          {"container": {"args": ["--model_name_or_path", {"inputValue": "Model"},
+          "--train_file", {"inputValue": "Train File"}, "--max_seq_length", {"inputValue":
+          "Max Seq Len"}, "--per_device_train_batch_size", {"inputValue": "Batch Size"},
+          "--num_train_epochs", {"inputValue": "Epochs"}, "--learning_rate", {"inputValue":
+          "Learning Rate"}, "--save_steps", {"inputValue": "Save Steps"}, "--output_dir",
+          {"inputValue": "Save Path"}], "command": ["echo", "/workspace/train.py",
+          {"inputValue": "Extra Params"}], "image": "abdullahsaal/hf_train@sha256:fb30378e91fba55f29e4cba84f74a90e12b6a02f1da1e39d4fc339c3bd79276c"}},
+          "inputs": [{"description": "The extra parameters for the training job.",
+          "name": "Extra Params", "type": "String"}, {"description": "The path to
+          a model or the name from HF", "name": "Model", "type": "String"}, {"description":
+          "The path to the training file.", "name": "Train File", "type": "String"},
+          {"description": "The maximum sequence length.", "name": "Max Seq Len", "type":
+          "Integer"}, {"description": "The batch size.", "name": "Batch Size", "type":
+          "Integer"}, {"description": "The number of epochs.", "name": "Epochs", "type":
+          "Integer"}, {"description": "The learning rate.", "name": "Learning Rate",
+          "type": "Float"}, {"description": "The number of steps between saving checkpoints.",
+          "name": "Save Steps", "type": "Integer"}, {"description": "The path to save
+          the model.", "name": "Save Path", "type": "String"}], "name": "Print HuggingFace
+          Trainer"}', pipelines.kubeflow.org/component_ref: '{"digest": "11db0a3d58e30835661bea196a1f43f0c7006b6c7838f3429c5bd200de58fa64"}',
+        pipelines.kubeflow.org/arguments.parameters: '{"Batch Size": "{{inputs.parameters.convert-run-args-batch}}",
+          "Epochs": "{{inputs.parameters.convert-run-args-epoch}}", "Extra Params":
+          "{{inputs.parameters.convert-run-args-extra_args}}", "Learning Rate": "{{inputs.parameters.convert-run-args-lr}}",
+          "Max Seq Len": "{{inputs.parameters.convert-run-args-seq}}", "Model": "{{inputs.parameters.convert-run-args-model}}",
+          "Save Path": "{{inputs.parameters.convert-run-args-out}}", "Save Steps":
+          "{{inputs.parameters.convert-run-args-save}}", "Train File": "{{inputs.parameters.convert-run-args-tf}}"}'}
   arguments:
     parameters:
     - {name: experiment_name}
