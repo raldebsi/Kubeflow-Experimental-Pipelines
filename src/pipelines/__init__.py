@@ -15,6 +15,8 @@ from .test_upload import pipeline as testuploadpipline
 from .end_to_end.mnist_experiment import pipeline as e2emnistpipeline
 from .test_upload import pipeline as testupload
 from .end_to_end.topic_class import pipeline as topicclasspipeline
+from .end_to_end.mnist_simple import pipeline as mnist_simple_pipeline
+from .end_to_end.just_write import pipeline as writemepip
 
 PIPELINES_LOCATION = "pipelines"
 HASH_LOCATION = os.path.join(PIPELINES_LOCATION, "hash.md5")

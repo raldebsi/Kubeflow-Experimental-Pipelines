@@ -1,0 +1,290 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: mnist-e2e-test-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-31T19:58:18.797961',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "Testin MNIST end to end
+      pipeline", "inputs": [{"default": "mnist-e2e-test-ridhwan", "name": "name",
+      "optional": true}, {"default": "2", "name": "training_steps", "optional": true}],
+      "name": "MNIST E2E Test"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12}
+spec:
+  entrypoint: mnist-e2e-test
+  templates:
+  - name: create-ridhwan-volumes-simple
+    resource:
+      action: create
+      manifest: |
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ridhwan-pvc-mount-four
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 4Gi
+    outputs:
+      parameters:
+      - name: create-ridhwan-volumes-simple-manifest
+        valueFrom: {jsonPath: '{}'}
+      - name: create-ridhwan-volumes-simple-name
+        valueFrom: {jsonPath: '{.metadata.name}'}
+      - name: create-ridhwan-volumes-simple-size
+        valueFrom: {jsonPath: '{.status.capacity.storage}'}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: kubeflow-launch-tfjob
+    container:
+      args:
+      - --name
+      - '{{workflow.name}}-{{inputs.parameters.name}}'
+      - --namespace
+      - '{{workflow.namespace}}'
+      - --version
+      - v1
+      - --activeDeadlineSeconds
+      - '-1'
+      - --backoffLimit
+      - '-1'
+      - --cleanPodPolicy
+      - Running
+      - --ttlSecondsAfterFinished
+      - '-1'
+      - --psSpec
+      - '{}'
+      - --workerSpec
+      - '{"replicas": 1, "restartPolicy": "OnFailure", "template": {"metadata": {"annotations":
+        {"sidecar.istio.io/inject": "false"}}, "spec": {"containers": [{"name": "tensorflow",
+        "image": "docker.io/liuhougangxa/tf-estimator-mnist", "command": ["sh", "-c"],
+        "args": ["python /opt/model.py --tf-export-dir=/mnt/export --tf-train-steps={{inputs.parameters.training_steps}}
+        --tf-learning-rate=0.03369294498160041 --tf-batch-size=93"]}]}}}'
+      - --chiefSpec
+      - '{"replicas": 1, "restartPolicy": "OnFailure", "template": {"metadata": {"annotations":
+        {"sidecar.istio.io/inject": "false"}}, "spec": {"containers": [{"name": "tensorflow",
+        "image": "docker.io/liuhougangxa/tf-estimator-mnist", "command": ["sh", "-c"],
+        "args": ["python /opt/model.py --tf-export-dir=/mnt/export --tf-train-steps={{inputs.parameters.training_steps}}
+        --tf-learning-rate=0.03369294498160041 --tf-batch-size=93"], "volumeMounts":
+        [{"mountPath": "/mnt/export", "name": "model-volume"}]}], "volumes": [{"name":
+        "model-volume", "persistentVolumeClaim": {"claimName": "{{inputs.parameters.create-ridhwan-volumes-simple-name}}"}}]}}}'
+      - --evaluatorSpec
+      - '{}'
+      - --tfjobTimeoutMinutes
+      - '60'
+      - --deleteAfterDone
+      - "False"
+      command: [python, /ml/launch_tfjob.py]
+      image: nikenano/launchernew:latest
+    inputs:
+      parameters:
+      - {name: create-ridhwan-volumes-simple-name}
+      - {name: name}
+      - {name: training_steps}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Kubeflow
+          TFJob launcher", "implementation": {"container": {"args": ["--name", {"inputValue":
+          "Name"}, "--namespace", {"inputValue": "Namespace"}, "--version", {"inputValue":
+          "Version"}, "--activeDeadlineSeconds", {"inputValue": "ActiveDeadlineSeconds"},
+          "--backoffLimit", {"inputValue": "BackoffLimit"}, "--cleanPodPolicy", {"inputValue":
+          "CleanPodPolicy"}, "--ttlSecondsAfterFinished", {"inputValue": "ttl Seconds
+          After Finished"}, "--psSpec", {"inputValue": "PS Spec"}, "--workerSpec",
+          {"inputValue": "Worker Spec"}, "--chiefSpec", {"inputValue": "Chief Spec"},
+          "--evaluatorSpec", {"inputValue": "Evaluator Spec"}, "--tfjobTimeoutMinutes",
+          {"inputValue": "Tfjob Timeout Minutes"}, "--deleteAfterDone", {"inputValue":
+          "Delete Finished Tfjob"}], "command": ["python", "/ml/launch_tfjob.py"],
+          "image": "nikenano/launchernew:latest"}}, "inputs": [{"description": "TFJob
+          name.", "name": "Name", "type": "String"}, {"default": "kubeflow", "description":
+          "TFJob namespace.", "name": "Namespace", "type": "String"}, {"default":
+          "v1", "description": "TFJob version.", "name": "Version", "type": "String"},
+          {"default": -1, "description": "Specifies the duration (in seconds) since
+          startTime during which the job can remain active before it is terminated.
+          Must be a positive integer. This setting applies only to pods where restartPolicy
+          is OnFailure or Always.", "name": "ActiveDeadlineSeconds", "type": "Integer"},
+          {"default": -1, "description": "Number of retries before marking this job
+          as failed.", "name": "BackoffLimit", "type": "Integer"}, {"default": -1,
+          "description": "Defines the TTL for cleaning up finished TFJobs.", "name":
+          "ttl Seconds After Finished", "type": "Integer"}, {"default": "Running",
+          "description": "Defines the policy for cleaning up pods after the TFJob
+          completes.", "name": "CleanPodPolicy", "type": "String"}, {"default": "{}",
+          "description": "TFJob ps replicaSpecs.", "name": "PS Spec", "type": "JsonObject"},
+          {"default": "{}", "description": "TFJob worker replicaSpecs.", "name": "Worker
+          Spec", "type": "JsonObject"}, {"default": "{}", "description": "TFJob chief
+          replicaSpecs.", "name": "Chief Spec", "type": "JsonObject"}, {"default":
+          "{}", "description": "TFJob evaluator replicaSpecs.", "name": "Evaluator
+          Spec", "type": "JsonObject"}, {"default": 1440, "description": "Time in
+          minutes to wait for the TFJob to complete.", "name": "Tfjob Timeout Minutes",
+          "type": "Integer"}, {"default": "True", "description": "Whether to delete
+          the tfjob after it is finished.", "name": "Delete Finished Tfjob", "type":
+          "Bool"}], "name": "Kubeflow - Launch TFJob"}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "e529c8c347d7f8f8823cdce6b28707e96e8294bc2589f83b3aba7542db27df77", "url":
+          "src/pipelines/yamls/Components/tfjob_launcher.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"ActiveDeadlineSeconds":
+          "-1", "BackoffLimit": "-1", "Chief Spec": "{\"replicas\": 1, \"restartPolicy\":
+          \"OnFailure\", \"template\": {\"metadata\": {\"annotations\": {\"sidecar.istio.io/inject\":
+          \"false\"}}, \"spec\": {\"containers\": [{\"name\": \"tensorflow\", \"image\":
+          \"docker.io/liuhougangxa/tf-estimator-mnist\", \"command\": [\"sh\", \"-c\"],
+          \"args\": [\"python /opt/model.py --tf-export-dir=/mnt/export --tf-train-steps={{inputs.parameters.training_steps}}
+          --tf-learning-rate=0.03369294498160041 --tf-batch-size=93\"], \"volumeMounts\":
+          [{\"mountPath\": \"/mnt/export\", \"name\": \"model-volume\"}]}], \"volumes\":
+          [{\"name\": \"model-volume\", \"persistentVolumeClaim\": {\"claimName\":
+          \"{{inputs.parameters.create-ridhwan-volumes-simple-name}}\"}}]}}}", "CleanPodPolicy":
+          "Running", "Delete Finished Tfjob": "False", "Evaluator Spec": "{}", "Name":
+          "{{workflow.name}}-{{inputs.parameters.name}}", "Namespace": "{{workflow.namespace}}",
+          "PS Spec": "{}", "Tfjob Timeout Minutes": "60", "Version": "v1", "Worker
+          Spec": "{\"replicas\": 1, \"restartPolicy\": \"OnFailure\", \"template\":
+          {\"metadata\": {\"annotations\": {\"sidecar.istio.io/inject\": \"false\"}},
+          \"spec\": {\"containers\": [{\"name\": \"tensorflow\", \"image\": \"docker.io/liuhougangxa/tf-estimator-mnist\",
+          \"command\": [\"sh\", \"-c\"], \"args\": [\"python /opt/model.py --tf-export-dir=/mnt/export
+          --tf-train-steps={{inputs.parameters.training_steps}} --tf-learning-rate=0.03369294498160041
+          --tf-batch-size=93\"]}]}}}", "ttl Seconds After Finished": "-1"}'}
+  - name: mnist-e2e-test
+    inputs:
+      parameters:
+      - {name: name}
+      - {name: training_steps}
+    dag:
+      tasks:
+      - {name: create-ridhwan-volumes-simple, template: create-ridhwan-volumes-simple}
+      - name: kubeflow-launch-tfjob
+        template: kubeflow-launch-tfjob
+        dependencies: [create-ridhwan-volumes-simple]
+        arguments:
+          parameters:
+          - {name: create-ridhwan-volumes-simple-name, value: '{{tasks.create-ridhwan-volumes-simple.outputs.parameters.create-ridhwan-volumes-simple-name}}'}
+          - {name: name, value: '{{inputs.parameters.name}}'}
+          - {name: training_steps, value: '{{inputs.parameters.training_steps}}'}
+      - name: serve-a-model-with-kserve
+        template: serve-a-model-with-kserve
+        dependencies: [create-ridhwan-volumes-simple, kubeflow-launch-tfjob]
+        arguments:
+          parameters:
+          - {name: create-ridhwan-volumes-simple-name, value: '{{tasks.create-ridhwan-volumes-simple.outputs.parameters.create-ridhwan-volumes-simple-name}}'}
+          - {name: name, value: '{{inputs.parameters.name}}'}
+  - name: serve-a-model-with-kserve
+    container:
+      args:
+      - -u
+      - kservedeployer.py
+      - --action
+      - apply
+      - --model-name
+      - ''
+      - --model-uri
+      - ''
+      - --canary-traffic-percent
+      - '100'
+      - --namespace
+      - ''
+      - --framework
+      - ''
+      - --custom-model-spec
+      - '{}'
+      - --autoscaling-target
+      - '0'
+      - --service-account
+      - ''
+      - --enable-istio-sidecar
+      - "True"
+      - --output-path
+      - /tmp/outputs/InferenceService_Status/data
+      - --inferenceservice-yaml
+      - |
+        apiVersion: kserve3/beta4
+        kind: InferenceService
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: 'false'
+          name: '{{workflow.name}}-{{inputs.parameters.name}}'
+          namespace: '{{workflow.namespace}}'
+        spec:
+          predictor:
+            tensorflow:
+              storageUri: pvc://{{inputs.parameters.create-ridhwan-volumes-simple-name}}/
+      - --watch-timeout
+      - '300'
+      - --min-replicas
+      - '-1'
+      - --max-replicas
+      - '-1'
+      - --request-timeout
+      - '60'
+      command: [python]
+      image: quay.io/aipipeline/kserve-component:v0.7.0
+    inputs:
+      parameters:
+      - {name: create-ridhwan-volumes-simple-name}
+      - {name: name}
+    outputs:
+      artifacts:
+      - {name: serve-a-model-with-kserve-InferenceService-Status, path: /tmp/outputs/InferenceService_Status/data}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Serve
+          Models using KServe", "implementation": {"container": {"args": ["-u", "kservedeployer.py",
+          "--action", {"inputValue": "Action"}, "--model-name", {"inputValue": "Model
+          Name"}, "--model-uri", {"inputValue": "Model URI"}, "--canary-traffic-percent",
+          {"inputValue": "Canary Traffic Percent"}, "--namespace", {"inputValue":
+          "Namespace"}, "--framework", {"inputValue": "Framework"}, "--custom-model-spec",
+          {"inputValue": "Custom Model Spec"}, "--autoscaling-target", {"inputValue":
+          "Autoscaling Target"}, "--service-account", {"inputValue": "Service Account"},
+          "--enable-istio-sidecar", {"inputValue": "Enable Istio Sidecar"}, "--output-path",
+          {"outputPath": "InferenceService Status"}, "--inferenceservice-yaml", {"inputValue":
+          "InferenceService YAML"}, "--watch-timeout", {"inputValue": "Watch Timeout"},
+          "--min-replicas", {"inputValue": "Min Replicas"}, "--max-replicas", {"inputValue":
+          "Max Replicas"}, "--request-timeout", {"inputValue": "Request Timeout"}],
+          "command": ["python"], "image": "quay.io/aipipeline/kserve-component:v0.7.0"}},
+          "inputs": [{"default": "create", "description": "Action to execute on KServe",
+          "name": "Action", "type": "String"}, {"default": "", "description": "Name
+          to give to the deployed model", "name": "Model Name", "type": "String"},
+          {"default": "", "description": "Path of the S3 or GCS compatible directory
+          containing the model.", "name": "Model URI", "type": "String"}, {"default":
+          "100", "description": "The traffic split percentage between the candidate
+          model and the last ready model", "name": "Canary Traffic Percent", "type":
+          "String"}, {"default": "", "description": "Kubernetes namespace where the
+          KServe service is deployed.", "name": "Namespace", "type": "String"}, {"default":
+          "", "description": "Machine Learning Framework for Model Serving.", "name":
+          "Framework", "type": "String"}, {"default": "{}", "description": "Custom
+          model runtime container spec in JSON", "name": "Custom Model Spec", "type":
+          "String"}, {"default": "0", "description": "Autoscaling Target Number",
+          "name": "Autoscaling Target", "type": "String"}, {"default": "", "description":
+          "ServiceAccount to use to run the InferenceService pod", "name": "Service
+          Account", "type": "String"}, {"default": "True", "description": "Whether
+          to enable istio sidecar injection", "name": "Enable Istio Sidecar", "type":
+          "Bool"}, {"default": "{}", "description": "Raw InferenceService serialized
+          YAML for deployment", "name": "InferenceService YAML", "type": "String"},
+          {"default": "300", "description": "Timeout seconds for watching until InferenceService
+          becomes ready.", "name": "Watch Timeout", "type": "String"}, {"default":
+          "-1", "description": "Minimum number of InferenceService replicas", "name":
+          "Min Replicas", "type": "String"}, {"default": "-1", "description": "Maximum
+          number of InferenceService replicas", "name": "Max Replicas", "type": "String"},
+          {"default": "60", "description": "Specifies the number of seconds to wait
+          before timing out a request to the component.", "name": "Request Timeout",
+          "type": "String"}], "name": "Serve a model with KServe", "outputs": [{"description":
+          "Status JSON output of InferenceService", "name": "InferenceService Status",
+          "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "cb3f9cdb6d51b05bddf7775e58a3b7351f9c923485fbc09a2c50eb6b281ba87a", "url":
+          "src/pipelines/yamls/Components/kfserve_launcher.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Action":
+          "apply", "Autoscaling Target": "0", "Canary Traffic Percent": "100", "Custom
+          Model Spec": "{}", "Enable Istio Sidecar": "True", "Framework": "", "InferenceService
+          YAML": "apiVersion: kserve3/beta4\nkind: InferenceService\nmetadata:\n  annotations:\n    sidecar.istio.io/inject:
+          ''false''\n  name: ''{{workflow.name}}-{{inputs.parameters.name}}''\n  namespace:
+          ''{{workflow.namespace}}''\nspec:\n  predictor:\n    tensorflow:\n      storageUri:
+          pvc://{{inputs.parameters.create-ridhwan-volumes-simple-name}}/\n", "Max
+          Replicas": "-1", "Min Replicas": "-1", "Model Name": "", "Model URI": "",
+          "Namespace": "", "Request Timeout": "60", "Service Account": "", "Watch
+          Timeout": "300"}'}
+  arguments:
+    parameters:
+    - {name: name, value: mnist-e2e-test-ridhwan}
+    - {name: training_steps, value: '2'}
+  serviceAccountName: pipeline-runner

@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: mnist-e2e-test-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-29T02:57:02.556642',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-31T19:01:07.369111',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Testin MNIST end to end
       pipeline", "inputs": [{"default": "mnist-e2e-test-ridhwan", "name": "name",
       "optional": true}, {"default": "200", "name": "training_steps", "optional":
@@ -103,27 +103,27 @@ spec:
           "image": "python:3.7"}}, "inputs": [{"name": "hyperparams"}], "name": "Convert
           hyperparams", "outputs": [{"name": "Output", "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{}',
         pipelines.kubeflow.org/arguments.parameters: '{"hyperparams": "{{inputs.parameters.katib-launch-experiment-Best-Parameter-Set}}"}'}
-  - name: create-ridhwan-volumes
+  - name: create-ridhwan-volumes-simple
     resource:
       action: create
       manifest: |
         apiVersion: v1
         kind: PersistentVolumeClaim
         metadata:
-          name: ridhwan-pvc-mount
+          name: ridhwan-pvc-mount-four
         spec:
           accessModes:
           - ReadWriteOnce
           resources:
             requests:
-              storage: 1Gi
+              storage: 4Gi
     outputs:
       parameters:
-      - name: create-ridhwan-volumes-manifest
+      - name: create-ridhwan-volumes-simple-manifest
         valueFrom: {jsonPath: '{}'}
-      - name: create-ridhwan-volumes-name
+      - name: create-ridhwan-volumes-simple-name
         valueFrom: {jsonPath: '{.metadata.name}'}
-      - name: create-ridhwan-volumes-size
+      - name: create-ridhwan-volumes-simple-size
         valueFrom: {jsonPath: '{.status.capacity.storage}'}
     metadata:
       labels:
@@ -258,7 +258,7 @@ spec:
         "args": ["python /opt/model.py --tf-export-dir=/mnt/export --tf-train-steps={{inputs.parameters.training_steps}}
         {{inputs.parameters.convert-hyperparams-Output}}"], "volumeMounts": [{"mountPath":
         "/mnt/export", "name": "model-volume"}]}], "volumes": [{"name": "model-volume",
-        "persistentVolumeClaim": {"claimName": "{{inputs.parameters.create-ridhwan-volumes-name}}"}}]}}}'
+        "persistentVolumeClaim": {"claimName": "{{inputs.parameters.create-ridhwan-volumes-simple-name}}"}}]}}}'
       - --evaluatorSpec
       - '{}'
       - --tfjobTimeoutMinutes
@@ -270,7 +270,7 @@ spec:
     inputs:
       parameters:
       - {name: convert-hyperparams-Output}
-      - {name: create-ridhwan-volumes-name}
+      - {name: create-ridhwan-volumes-simple-name}
       - {name: name}
       - {name: training_steps}
     metadata:
@@ -322,7 +322,7 @@ spec:
           \"args\": [\"python /opt/model.py --tf-export-dir=/mnt/export --tf-train-steps={{inputs.parameters.training_steps}}
           {{inputs.parameters.convert-hyperparams-Output}}\"], \"volumeMounts\": [{\"mountPath\":
           \"/mnt/export\", \"name\": \"model-volume\"}]}], \"volumes\": [{\"name\":
-          \"model-volume\", \"persistentVolumeClaim\": {\"claimName\": \"{{inputs.parameters.create-ridhwan-volumes-name}}\"}}]}}}",
+          \"model-volume\", \"persistentVolumeClaim\": {\"claimName\": \"{{inputs.parameters.create-ridhwan-volumes-simple-name}}\"}}]}}}",
           "CleanPodPolicy": "Running", "Delete Finished Tfjob": "False", "Evaluator
           Spec": "{}", "Name": "{{workflow.name}}-{{inputs.parameters.name}}", "Namespace":
           "{{workflow.namespace}}", "PS Spec": "{}", "Tfjob Timeout Minutes": "60",
@@ -346,7 +346,7 @@ spec:
         arguments:
           parameters:
           - {name: katib-launch-experiment-Best-Parameter-Set, value: '{{tasks.katib-launch-experiment.outputs.parameters.katib-launch-experiment-Best-Parameter-Set}}'}
-      - {name: create-ridhwan-volumes, template: create-ridhwan-volumes}
+      - {name: create-ridhwan-volumes-simple, template: create-ridhwan-volumes-simple}
       - name: katib-launch-experiment
         template: katib-launch-experiment
         arguments:
@@ -355,19 +355,19 @@ spec:
           - {name: training_steps, value: '{{inputs.parameters.training_steps}}'}
       - name: kubeflow-launch-tfjob
         template: kubeflow-launch-tfjob
-        dependencies: [convert-hyperparams, create-ridhwan-volumes]
+        dependencies: [convert-hyperparams, create-ridhwan-volumes-simple]
         arguments:
           parameters:
           - {name: convert-hyperparams-Output, value: '{{tasks.convert-hyperparams.outputs.parameters.convert-hyperparams-Output}}'}
-          - {name: create-ridhwan-volumes-name, value: '{{tasks.create-ridhwan-volumes.outputs.parameters.create-ridhwan-volumes-name}}'}
+          - {name: create-ridhwan-volumes-simple-name, value: '{{tasks.create-ridhwan-volumes-simple.outputs.parameters.create-ridhwan-volumes-simple-name}}'}
           - {name: name, value: '{{inputs.parameters.name}}'}
           - {name: training_steps, value: '{{inputs.parameters.training_steps}}'}
       - name: serve-a-model-with-kserve
         template: serve-a-model-with-kserve
-        dependencies: [create-ridhwan-volumes, kubeflow-launch-tfjob]
+        dependencies: [create-ridhwan-volumes-simple, kubeflow-launch-tfjob]
         arguments:
           parameters:
-          - {name: create-ridhwan-volumes-name, value: '{{tasks.create-ridhwan-volumes.outputs.parameters.create-ridhwan-volumes-name}}'}
+          - {name: create-ridhwan-volumes-simple-name, value: '{{tasks.create-ridhwan-volumes-simple.outputs.parameters.create-ridhwan-volumes-simple-name}}'}
           - {name: name, value: '{{inputs.parameters.name}}'}
   - name: serve-a-model-with-kserve
     container:
@@ -398,7 +398,7 @@ spec:
       - /tmp/outputs/InferenceService_Status/data
       - --inferenceservice-yaml
       - |
-        apiVersion: serving.kserve.io/v1beta1
+        apiVersion: serving.kubeflow.org/v1beta1
         kind: InferenceService
         metadata:
           annotations:
@@ -408,7 +408,7 @@ spec:
         spec:
           predictor:
             tensorflow:
-              storageUri: pvc://{{inputs.parameters.create-ridhwan-volumes-name}}/
+              storageUri: pvc://{{inputs.parameters.create-ridhwan-volumes-simple-name}}/
       - --watch-timeout
       - '300'
       - --min-replicas
@@ -421,7 +421,7 @@ spec:
       image: quay.io/aipipeline/kserve-component:v0.7.0
     inputs:
       parameters:
-      - {name: create-ridhwan-volumes-name}
+      - {name: create-ridhwan-volumes-simple-name}
       - {name: name}
     outputs:
       artifacts:
@@ -478,12 +478,13 @@ spec:
           "src/pipelines/yamls/Components/kfserve_launcher.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Action":
           "apply", "Autoscaling Target": "0", "Canary Traffic Percent": "100", "Custom
           Model Spec": "{}", "Enable Istio Sidecar": "True", "Framework": "", "InferenceService
-          YAML": "apiVersion: serving.kserve.io/v1beta1\nkind: InferenceService\nmetadata:\n  annotations:\n    sidecar.istio.io/inject:
+          YAML": "apiVersion: serving.kubeflow.org/v1beta1\nkind: InferenceService\nmetadata:\n  annotations:\n    sidecar.istio.io/inject:
           ''false''\n  name: ''{{workflow.name}}-{{inputs.parameters.name}}''\n  namespace:
           ''{{workflow.namespace}}''\nspec:\n  predictor:\n    tensorflow:\n      storageUri:
-          pvc://{{inputs.parameters.create-ridhwan-volumes-name}}/\n", "Max Replicas":
-          "-1", "Min Replicas": "-1", "Model Name": "", "Model URI": "", "Namespace":
-          "", "Request Timeout": "60", "Service Account": "", "Watch Timeout": "300"}'}
+          pvc://{{inputs.parameters.create-ridhwan-volumes-simple-name}}/\n", "Max
+          Replicas": "-1", "Min Replicas": "-1", "Model Name": "", "Model URI": "",
+          "Namespace": "", "Request Timeout": "60", "Service Account": "", "Watch
+          Timeout": "300"}'}
   arguments:
     parameters:
     - {name: name, value: mnist-e2e-test-ridhwan}

@@ -1,0 +1,75 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: just-write-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-31T21:07:45.046377',
+    pipelines.kubeflow.org/pipeline_spec: '{"inputs": [{"name": "volume_name", "type":
+      "String"}, {"name": "to_write", "type": "String"}], "name": "Just Write"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12}
+spec:
+  entrypoint: just-write
+  templates:
+  - name: just-write
+    inputs:
+      parameters:
+      - {name: to_write}
+      - {name: volume_name}
+    dag:
+      tasks:
+      - name: write-me
+        template: write-me
+        arguments:
+          parameters:
+          - {name: to_write, value: '{{inputs.parameters.to_write}}'}
+          - {name: volume_name, value: '{{inputs.parameters.volume_name}}'}
+  - name: write-me
+    container:
+      args: [--to-write, '{{inputs.parameters.to_write}}']
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def write_me(to_write):
+            with open("/store/my_file.txt", "w") as f:
+                f.write(to_write)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Write me', description='')
+        _parser.add_argument("--to-write", dest="to_write", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = write_me(**_parsed_args)
+      image: python:3.7
+      volumeMounts:
+      - {mountPath: /store, name: my-bind-volume}
+    inputs:
+      parameters:
+      - {name: to_write}
+      - {name: volume_name}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--to-write", {"inputValue": "to_write"}], "command": ["sh", "-ec",
+          "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
+          -u \"$program_path\" \"$@\"\n", "def write_me(to_write):\n    with open(\"/store/my_file.txt\",
+          \"w\") as f:\n        f.write(to_write)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Write
+          me'', description='''')\n_parser.add_argument(\"--to-write\", dest=\"to_write\",
+          type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = write_me(**_parsed_args)\n"], "image": "python:3.7"}}, "inputs": [{"name":
+          "to_write", "type": "String"}], "name": "Write me"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"to_write": "{{inputs.parameters.to_write}}"}'}
+    volumes:
+    - name: my-bind-volume
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.volume_name}}'}
+  arguments:
+    parameters:
+    - {name: volume_name}
+    - {name: to_write}
+  serviceAccountName: pipeline-runner

@@ -13,10 +13,10 @@ template:
       - "-c"
       args:
       - python3 /workspace/train.py {trainParamValues}
-    #   volumeMounts:
-    #   - mountPath: "/storage"
-    #     name: training-volume
-    # volumes:
-    # - name: training-volume
-    #   persistentVolumeClaim:
-    #     claimName: "{volumeResourceName}"
+      volumeMounts:
+      - mountPath: "/storage"
+        name: training-volume
+    volumes:
+    - name: training-volume
+      persistentVolumeClaim:
+        claimName: "{volumeResourceName}"

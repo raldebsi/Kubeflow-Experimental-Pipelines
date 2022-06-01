@@ -1,3 +1,4 @@
+from kserve import KServeClient
 import kfp
 from kfp import components, dsl
 from kfp.components import func_to_container_op
@@ -102,7 +103,7 @@ def convert_hyperparams(hyperparams) -> str:
     print("Best Params", best_params)
     return " ".join(best_params)
 
-def create_tfjob_task(job_name, job_namespace, steps, hyperparams, mount_name):
+def create_tfjob_task(job_name, job_namespace, steps, mount_name, hyperparams):
     tfjob_chief_spec = spec_from_file_format("src/pipelines/yamls/Specs/TFJobChief.yaml",
         trainingStepsParamVal=steps,
         bestHPsParamVal=hyperparams,
@@ -129,7 +130,7 @@ def create_tfjob_task(job_name, job_namespace, steps, hyperparams, mount_name):
 def create_serve_task(model_name, model_namespace, mount_name):
     infer_service = spec_from_file_format(
         "src/pipelines/yamls/Specs/KFServe.yaml",
-        apiVersion="serving.kubeflow.org/v1beta1",
+        apiVersion="kserve3/beta4",
         modelName=model_name,
         modelNamespace=model_namespace,
         volumeResourceName=mount_name,
@@ -148,20 +149,19 @@ def create_serve_task(model_name, model_namespace, mount_name):
     name="MNIST E2E Test",
     description="Testin MNIST end to end pipeline"
 )
-def pipeline(name="mnist-e2e-test-ridhwan", training_steps="200"):
+def pipeline(name="mnist-e2e-test-ridhwan", training_steps="2"):
     name = "{{workflow.name}}-%s" % name
     namespace="{{workflow.namespace}}"
-    katib_task = katib_experiment_factory(name, namespace, training_steps)
 
     volume_pvc = get_or_create_pvc("Create Ridhwan Volumes Simple", "4Gi", "ridhwan-pvc-mount-four")
     volume_name = volume_pvc.outputs["name"]
 
     # Convert Params
-    convert_params_op = func_to_container_op(convert_hyperparams)
-    convert_params_task = convert_params_op(katib_task.output)
+    # convert_params_op = func_to_container_op(convert_hyperparams)
+    # convert_params_task = convert_params_op()
 
     # TFJob
-    tfjob_task = create_tfjob_task(name, namespace, training_steps, convert_params_task.output, volume_name)
+    tfjob_task = create_tfjob_task(name, namespace, training_steps, volume_name, "--tf-learning-rate=0.03369294498160041 --tf-batch-size=93")
 
 
     # Serve

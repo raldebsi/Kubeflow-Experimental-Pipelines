@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: test-file-upload-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-23T12:34:01.815620',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-31T18:26:11.850097',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Testing uploading files
       from ui", "inputs": [{"name": "test_data_2", "type": "DataInput"}], "name":
       "Test File Upload"}'}
@@ -10,6 +10,52 @@ metadata:
 spec:
   entrypoint: test-file-upload
   templates:
+  - name: receive-and-print-any
+    container:
+      args: [--input, '{{inputs.parameters.receive-and-print-data-my_out_data}}']
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def receive_and_print_any(input):
+            print("input", input)
+            import os
+            if os.path.exists(input):
+                print("Is File")
+                with open(input, encoding='utf-8') as f:
+                    print("Data:", f.read())
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Receive and print any', description='')
+        _parser.add_argument("--input", dest="input", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = receive_and_print_any(**_parsed_args)
+      image: python:3.7
+    inputs:
+      parameters:
+      - {name: receive-and-print-data-my_out_data}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--input", {"inputValue": "input"}], "command": ["sh", "-ec",
+          "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
+          -u \"$program_path\" \"$@\"\n", "def receive_and_print_any(input):\n    print(\"input\",
+          input)\n    import os\n    if os.path.exists(input):\n        print(\"Is
+          File\")\n        with open(input, encoding=''utf-8'') as f:\n            print(\"Data:\",
+          f.read())\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Receive
+          and print any'', description='''')\n_parser.add_argument(\"--input\", dest=\"input\",
+          type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = receive_and_print_any(**_parsed_args)\n"], "image": "python:3.7"}}, "inputs":
+          [{"name": "input"}], "name": "Receive and print any"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"input": "{{inputs.parameters.receive-and-print-data-my_out_data}}"}'}
   - name: receive-and-print-data
     container:
       args: [--bin-input, /tmp/inputs/bin_input/data, '----output-paths', /tmp/outputs/my_out_data/data]
@@ -22,13 +68,15 @@ spec:
         python3 -u "$program_path" "$@"
       - |
         def receive_and_print_data(bin_input):
-            print(bin_input)
+            print("Bin_Input: ", bin_input)
 
-            return bin_input
+            with open(bin_input, encoding='utf-8') as f:
+                print("Content:", f.read())
+            return "This is my output"
 
         import argparse
         _parser = argparse.ArgumentParser(prog='Receive and print data', description='')
-        _parser.add_argument("--bin-input", dest="bin_input", type=argparse.FileType('rb'), required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--bin-input", dest="bin_input", type=str, required=True, default=argparse.SUPPRESS)
         _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
         _parsed_args = vars(_parser.parse_args())
         _output_files = _parsed_args.pop("_output_paths", [])
@@ -53,6 +101,9 @@ spec:
       artifacts:
       - {name: test_data_2, path: /tmp/inputs/bin_input/data}
     outputs:
+      parameters:
+      - name: receive-and-print-data-my_out_data
+        valueFrom: {path: /tmp/outputs/my_out_data/data}
       artifacts:
       - {name: receive-and-print-data-my_out_data, path: /tmp/outputs/my_out_data/data}
     metadata:
@@ -64,10 +115,11 @@ spec:
           {"args": ["--bin-input", {"inputPath": "bin_input"}, "----output-paths",
           {"outputPath": "my_out_data"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf
           \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
-          "def receive_and_print_data(bin_input):\n    print(bin_input)\n\n    return
-          bin_input\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Receive
+          "def receive_and_print_data(bin_input):\n    print(\"Bin_Input: \", bin_input)\n\n    with
+          open(bin_input, encoding=''utf-8'') as f:\n        print(\"Content:\", f.read())\n    return
+          \"This is my output\"\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Receive
           and print data'', description='''')\n_parser.add_argument(\"--bin-input\",
-          dest=\"bin_input\", type=argparse.FileType(''rb''), required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"bin_input\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
           dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
           = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = receive_and_print_data(**_parsed_args)\n\n_output_serializers
           = [\n    str,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
@@ -81,6 +133,12 @@ spec:
       - {name: test_data_2}
     dag:
       tasks:
+      - name: receive-and-print-any
+        template: receive-and-print-any
+        dependencies: [receive-and-print-data]
+        arguments:
+          parameters:
+          - {name: receive-and-print-data-my_out_data, value: '{{tasks.receive-and-print-data.outputs.parameters.receive-and-print-data-my_out_data}}'}
       - name: receive-and-print-data
         template: receive-and-print-data
         arguments:

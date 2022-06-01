@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: pipeline-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-22T21:59:13.673514',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-27T19:02:09.080216',
     pipelines.kubeflow.org/pipeline_spec: '{"inputs": [{"name": "access_key"}, {"name":
       "secret_key"}, {"default": "5", "name": "epochs", "optional": true, "type":
       "Integer"}], "name": "Pipeline"}'}

@@ -57,7 +57,7 @@ def get_run_args(dataset_name, has_valid, seq_len, batch_size_dev, learn_rate, e
 def create_tfjob_task(job_name, hyperparams, mount_name):
     tfjob_chief_spec = spec_from_file_format("src/pipelines/yamls/Specs/HFChief.yaml",
         trainParamValues=hyperparams,
-        volumeResourceName=mount_name, # Inactive currently since I handle it externally
+        volumeResourceName=mount_name,
     )
     tfjob_worker_spec = spec_from_file_format("src/pipelines/yamls/Specs/HFWorker.yaml",
         trainParamValues=hyperparams,
@@ -76,6 +76,16 @@ def create_tfjob_task(job_name, hyperparams, mount_name):
 
     return tfjob_task
 
+def hf_task(params: str):
+    hfjob_op = components.load_component_from_file("src/pipelines/yamls/Components/hf_trainer_internal.yaml")
+
+    hf_task = hfjob_op(
+        params=params,
+    )
+
+    return hf_task
+
+
 
 @kfp.dsl.pipeline(
     name="End to End Hugging Face Topic Classifier",
@@ -86,16 +96,19 @@ def pipeline(experiment_name: str, volume_name: str,
                 max_sequence_length: int = 512, device_batch_size: int = 8,
                 learning_rate: float = 3e-5, epochs: int = 5, seed: Optional[int] = None):
     
-    mount_vol = get_volume_by_name(volume_name)
-    convert_args_comp = func_to_container_op(get_run_args)
-    mount_vol = get_or_create_pvc("Create Ridhwan Volumes", "4Gi", "New Data").volume
+    mount_vol = get_volume_by_name(volume_name, "my-bind-volume")
     mount_dict = {"/store": mount_vol}
+    # mount_vol = get_or_create_pvc("Create Ridhwan Volumes", "4Gi", volume_name)
+    # mount_vol = get_or_create_pvc("Create Ridhwan Volumes RWM", "4Gi", volume_name, mode=kfp.dsl.VOLUME_MODE_RWM)
+    # mount_dict = {"/store": mount_vol.volume}
     volumetrize = add_pvolumes_func(mount_dict)
 
+    convert_args_comp = func_to_container_op(get_run_args)
     convert_args_task = convert_args_comp(dataset_name, has_valid, max_sequence_length, device_batch_size, learning_rate, epochs, seed, experiment_name)
     convert_args_task = volumetrize(convert_args_task)
 
-    train_task = create_tfjob_task(experiment_name, convert_args_task.output, volume_name)
-    volumetrize(train_task)
+    # train_task = create_tfjob_task(experiment_name, convert_args_task.output, volume_name)
+    # train_task = volumetrize(train_task)
 
-
+    train_task = hf_task(convert_args_task.output)
+    train_task = volumetrize(train_task)
