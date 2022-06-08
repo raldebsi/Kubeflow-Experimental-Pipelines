@@ -1,10 +1,10 @@
-import kfp
-import kfp.compiler
-import kfp.components
+import uuid
+
+import yaml
+from kfp import dsl
 from kfp.dsl._pipeline_param import sanitize_k8s_name
 from kfp.dsl._pipeline_volume import PipelineVolume
-from kfp import dsl
-import yaml
+
 
 def spec_from_file_format(yaml_file, **kwargs):
     with open(yaml_file, 'r') as f:
@@ -14,12 +14,12 @@ def spec_from_file_format(yaml_file, **kwargs):
         return yaml.safe_load(component_spec)
 
 def get_volume_by_name(name, unique_name = "") -> PipelineVolume:
-    # Get volume
+    # Get volume    
     name = str(name)
     is_pipeline_name = name.startswith('{{') and name.endswith('}}')
     if not unique_name:
         volume_name = sanitize_k8s_name(name) if not is_pipeline_name else name
-        unique_volume_name = "{{workflow.name}}-%s" % volume_name
+        unique_volume_name = "%s-%s" % (volume_name, uuid.uuid4().hex[:7])
     else:
         unique_volume_name = unique_name
     mount_vol = PipelineVolume(
