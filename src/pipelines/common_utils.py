@@ -16,8 +16,8 @@ def spec_from_file_format(yaml_file, **kwargs):
 def get_volume_by_name(name, unique_name = "") -> PipelineVolume:
     # Get volume    
     name = str(name)
-    is_pipeline_name = name.startswith('{{') and name.endswith('}}')
     if not unique_name:
+        is_pipeline_name = name.startswith('{{') and name.endswith('}}')
         volume_name = sanitize_k8s_name(name) if not is_pipeline_name else name
         unique_volume_name = "%s-%s" % (volume_name, uuid.uuid4().hex[:7])
     else:
@@ -46,4 +46,5 @@ def get_or_create_pvc(name: str, size_: str, resource: str, randomize: bool = Fa
     )
 
 def add_pvolumes_func(pvolumes):
+    # kfp.dsl._container_op.ContainerOp
     return lambda func: func.add_pvolumes(pvolumes)
