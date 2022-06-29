@@ -154,12 +154,12 @@ def convert_run_args(args: dict, extra_args: dict) -> NamedTuple(
         int     (args["num_train_epochs"]),             \
         str     (args["output_dir"]),                   \
         int     (args["save_steps"]),                   \
-        " ".join("--{} {}".format(k, v) if v is not "" else "--" + k for k, v in extra_args.items())
+        " ".join("--{} {}".format(k, v) if v != "" else "--" + k for k, v in extra_args.items())
 
 def create_serve_task(model_name, experiment_name, mount_name):
     model_namespace = "{{workflow.namespace}}"
     model_name = "{}_{}".format(model_name, experiment_name)
-    
+
     infer_service = spec_from_file_format(
         "src/pipelines/yamls/Specs/KFServe.yaml",
         apiVersion="kserve3/beta4",

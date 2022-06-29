@@ -5,7 +5,7 @@ import kfp
 import yaml
 from kfp import components
 from kfp.components import func_to_container_op
-from src.pipelines.common_utils import (add_pvolumes_func, get_volume_by_name,
+from src.pipelines.common_utils import (add_pvolumes_func, get_volume_by_name, setup_volume,
                                         spec_from_file_format)
 
 
@@ -40,9 +40,7 @@ def generate_inference_service_name(dataset_name, experiment_name) -> str:
     description="End to End Topic Classiciation using HuggingFace Framework and CamelBert model"
 )
 def pipeline(experiment_name: str, volume_name: str, dataset_name: str): 
-    mount_vol = get_volume_by_name(volume_name, "volume-bind")
-    mount_dict = {"/store": mount_vol}
-    volumetrize = add_pvolumes_func(mount_dict)
+    volumetrize = setup_volume(volume_name, "/store")
 
     serve_task = create_serve_task(dataset_name, experiment_name, volume_name)
     serve_task = volumetrize(serve_task)
