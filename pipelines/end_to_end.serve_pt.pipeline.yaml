@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: end-to-end-hugging-face-topic-classifier-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-06-29T17:24:30.318857',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-06-29T17:28:59.473761',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "End to End Topic Classiciation
       using HuggingFace Framework and CamelBert model", "inputs": [{"name": "experiment_name",
       "type": "String"}, {"name": "volume_name", "type": "String"}, {"name": "dataset_name",
@@ -47,7 +47,7 @@ spec:
         python3 -u "$program_path" "$@"
       - |
         def generate_inference_service_name(dataset_name, experiment_name):
-            return "{}.{}".format(dataset_name, experiment_name).lower().replace('_', '-')
+            return "{}-{}".format(dataset_name, experiment_name).lower().replace('_', '-')
 
         def _serialize_str(str_value: str) -> str:
             if not isinstance(str_value, str):
@@ -101,7 +101,7 @@ spec:
           {"inputValue": "experiment_name"}, "----output-paths", {"outputPath": "Output"}],
           "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" >
           \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def generate_inference_service_name(dataset_name,
-          experiment_name):\n    return \"{}.{}\".format(dataset_name, experiment_name).lower().replace(''_'',
+          experiment_name):\n    return \"{}-{}\".format(dataset_name, experiment_name).lower().replace(''_'',
           ''-'')\n\ndef _serialize_str(str_value: str) -> str:\n    if not isinstance(str_value,
           str):\n        raise TypeError(''Value \"{}\" has type \"{}\" instead of
           str.''.format(\n            str(str_value), str(type(str_value))))\n    return

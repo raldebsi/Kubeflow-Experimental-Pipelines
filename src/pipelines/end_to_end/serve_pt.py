@@ -30,10 +30,10 @@ def create_serve_task(dataset_name, experiment_name, mount_name):
         inferenceservice_yaml=yaml.dump(infer_service),
     )
     
-    return serve_task
+    return serve_task, model_name
 
 def generate_inference_service_name(dataset_name, experiment_name) -> str:
-    return "{}.{}".format(dataset_name, experiment_name).lower().replace('_', '-')
+    return "{}-{}".format(dataset_name, experiment_name).lower().replace('_', '-')
 
 @kfp.dsl.pipeline(
     name="End to End Hugging Face Topic Classifier",
@@ -42,5 +42,5 @@ def generate_inference_service_name(dataset_name, experiment_name) -> str:
 def pipeline(experiment_name: str, volume_name: str, dataset_name: str): 
     volumetrize = setup_volume(volume_name, "/store")
 
-    serve_task = create_serve_task(dataset_name, experiment_name, volume_name)
+    serve_task, service_name = create_serve_task(dataset_name, experiment_name, volume_name)
     serve_task = volumetrize(serve_task)
