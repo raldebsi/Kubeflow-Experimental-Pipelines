@@ -48,3 +48,24 @@ def get_or_create_pvc(name: str, size_: str, resource: str, randomize: bool = Fa
 def add_pvolumes_func(pvolumes):
     # kfp.dsl._container_op.ContainerOp
     return lambda func: func.add_pvolumes(pvolumes)
+
+def number_to_base_26(number):
+    """
+        Converts a number to base 26 then to alphabet, 0 -> a, 25 -> z, 26 -> aa
+    """
+    if number < 26:
+        return chr(ord('a') + number)
+    else:
+        return number_to_base_26(number // 26 - 1) + chr(ord('a') + number % 26)
+
+def setup_volume(volume_name, *mount_points):
+    if len(mount_points) == 1:
+        mount_vol = get_volume_by_name(volume_name, "volume-bind")
+        return add_pvolumes_func({mount_points[0]: mount_vol})
+    else:
+        mount_dict = {}
+        for i, mount_point in enumerate(mount_points):
+            mount_vol = get_volume_by_name(volume_name, "volume-bind-%s" % number_to_base_26(i))
+            mount_dict[mount_point] = mount_vol
+
+    return add_pvolumes_func(mount_dict)
