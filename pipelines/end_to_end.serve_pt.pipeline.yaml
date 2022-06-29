@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: end-to-end-hugging-face-topic-classifier-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-06-29T12:24:24.483757',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-06-29T17:24:30.318857',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "End to End Topic Classiciation
       using HuggingFace Framework and CamelBert model", "inputs": [{"name": "experiment_name",
       "type": "String"}, {"name": "volume_name", "type": "String"}, {"name": "dataset_name",
@@ -19,13 +19,105 @@ spec:
       - {name: volume_name}
     dag:
       tasks:
-      - name: serve-a-model-with-kserve
-        template: serve-a-model-with-kserve
+      - name: generate-inference-service-name
+        template: generate-inference-service-name
         arguments:
           parameters:
           - {name: dataset_name, value: '{{inputs.parameters.dataset_name}}'}
           - {name: experiment_name, value: '{{inputs.parameters.experiment_name}}'}
+      - name: serve-a-model-with-kserve
+        template: serve-a-model-with-kserve
+        dependencies: [generate-inference-service-name]
+        arguments:
+          parameters:
+          - {name: dataset_name, value: '{{inputs.parameters.dataset_name}}'}
+          - {name: experiment_name, value: '{{inputs.parameters.experiment_name}}'}
+          - {name: generate-inference-service-name-Output, value: '{{tasks.generate-inference-service-name.outputs.parameters.generate-inference-service-name-Output}}'}
           - {name: volume_name, value: '{{inputs.parameters.volume_name}}'}
+  - name: generate-inference-service-name
+    container:
+      args: [--dataset-name, '{{inputs.parameters.dataset_name}}', --experiment-name,
+        '{{inputs.parameters.experiment_name}}', '----output-paths', /tmp/outputs/Output/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def generate_inference_service_name(dataset_name, experiment_name):
+            return "{}.{}".format(dataset_name, experiment_name).lower().replace('_', '-')
+
+        def _serialize_str(str_value: str) -> str:
+            if not isinstance(str_value, str):
+                raise TypeError('Value "{}" has type "{}" instead of str.'.format(
+                    str(str_value), str(type(str_value))))
+            return str_value
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Generate inference service name', description='')
+        _parser.add_argument("--dataset-name", dest="dataset_name", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--experiment-name", dest="experiment_name", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = generate_inference_service_name(**_parsed_args)
+
+        _outputs = [_outputs]
+
+        _output_serializers = [
+            _serialize_str,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: python:3.7
+    inputs:
+      parameters:
+      - {name: dataset_name}
+      - {name: experiment_name}
+    outputs:
+      parameters:
+      - name: generate-inference-service-name-Output
+        valueFrom: {path: /tmp/outputs/Output/data}
+      artifacts:
+      - {name: generate-inference-service-name-Output, path: /tmp/outputs/Output/data}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--dataset-name", {"inputValue": "dataset_name"}, "--experiment-name",
+          {"inputValue": "experiment_name"}, "----output-paths", {"outputPath": "Output"}],
+          "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" >
+          \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def generate_inference_service_name(dataset_name,
+          experiment_name):\n    return \"{}.{}\".format(dataset_name, experiment_name).lower().replace(''_'',
+          ''-'')\n\ndef _serialize_str(str_value: str) -> str:\n    if not isinstance(str_value,
+          str):\n        raise TypeError(''Value \"{}\" has type \"{}\" instead of
+          str.''.format(\n            str(str_value), str(type(str_value))))\n    return
+          str_value\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Generate
+          inference service name'', description='''')\n_parser.add_argument(\"--dataset-name\",
+          dest=\"dataset_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--experiment-name\",
+          dest=\"experiment_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = generate_inference_service_name(**_parsed_args)\n\n_outputs
+          = [_outputs]\n\n_output_serializers = [\n    _serialize_str,\n\n]\n\nimport
+          os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "dataset_name"}, {"name": "experiment_name"}],
+          "name": "Generate inference service name", "outputs": [{"name": "Output",
+          "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{}', pipelines.kubeflow.org/arguments.parameters: '{"dataset_name":
+          "{{inputs.parameters.dataset_name}}", "experiment_name": "{{inputs.parameters.experiment_name}}"}'}
   - name: serve-a-model-with-kserve
     container:
       args:
@@ -60,7 +152,7 @@ spec:
         metadata:
           annotations:
             sidecar.istio.io/inject: 'false'
-          name: '{{inputs.parameters.dataset_name}}_{{inputs.parameters.experiment_name}}'
+          name: '{{inputs.parameters.generate-inference-service-name-Output}}'
           namespace: '{{workflow.namespace}}'
         spec:
           predictor:
@@ -82,6 +174,7 @@ spec:
       parameters:
       - {name: dataset_name}
       - {name: experiment_name}
+      - {name: generate-inference-service-name-Output}
       - {name: volume_name}
     outputs:
       artifacts:
@@ -139,7 +232,7 @@ spec:
           "apply", "Autoscaling Target": "0", "Canary Traffic Percent": "100", "Custom
           Model Spec": "{}", "Enable Istio Sidecar": "True", "Framework": "", "InferenceService
           YAML": "apiVersion: serving.kserve.io/v1beta1\nkind: InferenceService\nmetadata:\n  annotations:\n    sidecar.istio.io/inject:
-          ''false''\n  name: ''{{inputs.parameters.dataset_name}}_{{inputs.parameters.experiment_name}}''\n  namespace:
+          ''false''\n  name: ''{{inputs.parameters.generate-inference-service-name-Output}}''\n  namespace:
           ''{{workflow.namespace}}''\nspec:\n  predictor:\n    tensorflow:\n      storageUri:
           pvc://{{inputs.parameters.volume_name}}/{{inputs.parameters.experiment_name}}/outputs/{{inputs.parameters.dataset_name}}\n",
           "Max Replicas": "-1", "Min Replicas": "-1", "Model Name": "", "Model URI":
