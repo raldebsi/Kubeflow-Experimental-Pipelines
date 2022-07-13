@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: mnist-e2e-test-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-31T19:01:07.369111',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-12T11:46:54.156837',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Testin MNIST end to end
       pipeline", "inputs": [{"default": "mnist-e2e-test-ridhwan", "name": "name",
       "optional": true}, {"default": "200", "name": "training_steps", "optional":

@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: end-to-end-hugging-face-topic-classifier-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-06-29T17:28:59.473761',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-12T11:46:53.756578',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "End to End Topic Classiciation
       using HuggingFace Framework and CamelBert model", "inputs": [{"name": "experiment_name",
       "type": "String"}, {"name": "volume_name", "type": "String"}, {"name": "dataset_name",
@@ -156,7 +156,7 @@ spec:
           namespace: '{{workflow.namespace}}'
         spec:
           predictor:
-            tensorflow:
+            pytorch:
               storageUri: pvc://{{inputs.parameters.volume_name}}/{{inputs.parameters.experiment_name}}/outputs/{{inputs.parameters.dataset_name}}
       - --watch-timeout
       - '300'
@@ -233,7 +233,7 @@ spec:
           Model Spec": "{}", "Enable Istio Sidecar": "True", "Framework": "", "InferenceService
           YAML": "apiVersion: serving.kserve.io/v1beta1\nkind: InferenceService\nmetadata:\n  annotations:\n    sidecar.istio.io/inject:
           ''false''\n  name: ''{{inputs.parameters.generate-inference-service-name-Output}}''\n  namespace:
-          ''{{workflow.namespace}}''\nspec:\n  predictor:\n    tensorflow:\n      storageUri:
+          ''{{workflow.namespace}}''\nspec:\n  predictor:\n    pytorch:\n      storageUri:
           pvc://{{inputs.parameters.volume_name}}/{{inputs.parameters.experiment_name}}/outputs/{{inputs.parameters.dataset_name}}\n",
           "Max Replicas": "-1", "Min Replicas": "-1", "Model Name": "", "Model URI":
           "", "Namespace": "", "Request Timeout": "60", "Service Account": "", "Watch

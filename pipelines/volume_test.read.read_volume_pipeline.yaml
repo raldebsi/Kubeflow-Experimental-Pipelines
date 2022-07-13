@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: shared-volume-pipeline-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-27T19:00:52.491466',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-12T11:46:53.829607',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Test reading from a consistent
       volume", "inputs": [{"name": "data_path", "type": "String"}], "name": "Shared
       Volume Pipeline"}'}
@@ -39,7 +39,7 @@ spec:
         _outputs = read_file(**_parsed_args)
       image: python:3.7
       volumeMounts:
-      - {mountPath: '{{inputs.parameters.data_path}}', name: '{{workflow.name}}-ridhwan-pvc-mount'}
+      - {mountPath: '{{inputs.parameters.data_path}}', name: ridhwan-pvc-mount-89771ee}
     inputs:
       parameters:
       - {name: data_path}
@@ -62,7 +62,7 @@ spec:
           "name": "Read file"}', pipelines.kubeflow.org/component_ref: '{}', pipelines.kubeflow.org/arguments.parameters: '{"path":
           "{{inputs.parameters.data_path}}"}'}
     volumes:
-    - name: '{{workflow.name}}-ridhwan-pvc-mount'
+    - name: ridhwan-pvc-mount-89771ee
       persistentVolumeClaim: {claimName: ridhwan-pvc-mount}
   - name: shared-volume-pipeline
     inputs:

@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: pipeline-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-27T19:02:09.080216',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-12T11:46:54.267627',
     pipelines.kubeflow.org/pipeline_spec: '{"inputs": [{"name": "access_key"}, {"name":
       "secret_key"}, {"default": "5", "name": "epochs", "optional": true, "type":
       "Integer"}], "name": "Pipeline"}'}
@@ -40,6 +40,8 @@ spec:
             _s3 = session.resource('s3')
             bucket = _s3.Bucket("kubeflow-poc-saal")
             list_bucket_dir(bucket)
+            # upload(session, "s3_pipe.yaml")
+            # return bucket
 
         import argparse
         _parser = argparse.ArgumentParser(prog='Connect s3', description='')
@@ -68,8 +70,9 @@ spec:
           secret_key):\n    import boto3\n    def list_bucket_dir(bucket):\n        objects
           = [x.key for x in bucket.objects.all()]\n        print(objects)\n        return
           objects\n\n    session = boto3.Session(\n        aws_access_key_id=access_key,\n        aws_secret_access_key=secret_key,\n    )\n    _s3
-          = session.resource(''s3'')\n    bucket = _s3.Bucket(\"kubeflow-poc-saal\")\n    list_bucket_dir(bucket)\n\nimport
-          argparse\n_parser = argparse.ArgumentParser(prog=''Connect s3'', description='''')\n_parser.add_argument(\"--access-key\",
+          = session.resource(''s3'')\n    bucket = _s3.Bucket(\"kubeflow-poc-saal\")\n    list_bucket_dir(bucket)\n    #
+          upload(session, \"s3_pipe.yaml\")\n    # return bucket\n\nimport argparse\n_parser
+          = argparse.ArgumentParser(prog=''Connect s3'', description='''')\n_parser.add_argument(\"--access-key\",
           dest=\"access_key\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--secret-key\",
           dest=\"secret_key\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args
           = vars(_parser.parse_args())\n\n_outputs = connect_s3(**_parsed_args)\n"],
@@ -107,6 +110,8 @@ spec:
             _s3 = session.resource('s3')
             bucket = _s3.Bucket("kubeflow-poc-saal")
             list_bucket_dir(bucket)
+            # upload(session, "s3_pipe.yaml")
+            # return bucket
 
         import argparse
         _parser = argparse.ArgumentParser(prog='Connect s3', description='')
@@ -135,8 +140,9 @@ spec:
           secret_key):\n    import boto3\n    def list_bucket_dir(bucket):\n        objects
           = [x.key for x in bucket.objects.all()]\n        print(objects)\n        return
           objects\n\n    session = boto3.Session(\n        aws_access_key_id=access_key,\n        aws_secret_access_key=secret_key,\n    )\n    _s3
-          = session.resource(''s3'')\n    bucket = _s3.Bucket(\"kubeflow-poc-saal\")\n    list_bucket_dir(bucket)\n\nimport
-          argparse\n_parser = argparse.ArgumentParser(prog=''Connect s3'', description='''')\n_parser.add_argument(\"--access-key\",
+          = session.resource(''s3'')\n    bucket = _s3.Bucket(\"kubeflow-poc-saal\")\n    list_bucket_dir(bucket)\n    #
+          upload(session, \"s3_pipe.yaml\")\n    # return bucket\n\nimport argparse\n_parser
+          = argparse.ArgumentParser(prog=''Connect s3'', description='''')\n_parser.add_argument(\"--access-key\",
           dest=\"access_key\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--secret-key\",
           dest=\"secret_key\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args
           = vars(_parser.parse_args())\n\n_outputs = connect_s3(**_parsed_args)\n"],

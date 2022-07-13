@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: test-file-upload-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-31T18:26:11.850097',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-12T11:46:53.676247',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Testing uploading files
       from ui", "inputs": [{"name": "test_data_2", "type": "DataInput"}], "name":
       "Test File Upload"}'}

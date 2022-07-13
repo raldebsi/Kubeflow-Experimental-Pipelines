@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: just-write-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-31T21:07:45.046377',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-12T11:46:53.642826',
     pipelines.kubeflow.org/pipeline_spec: '{"inputs": [{"name": "volume_name", "type":
       "String"}, {"name": "to_write", "type": "String"}], "name": "Just Write"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12}

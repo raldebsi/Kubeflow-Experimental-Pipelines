@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: end-to-end-hugging-face-topic-classifier-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-06-29T17:22:13.509395',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-12T11:46:53.970176',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "End to End Topic Classiciation
       using HuggingFace Framework and CamelBert model", "inputs": [{"name": "experiment_name",
       "type": "String"}, {"name": "volume_name", "type": "String"}, {"name": "dataset_name",

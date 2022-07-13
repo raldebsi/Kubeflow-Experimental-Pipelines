@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: writing-into-pvc-test-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-27T19:00:52.261082',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-12T11:46:53.867185',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Test writing to a consistent
       volume", "name": "Writing Into PVC Test"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12}
