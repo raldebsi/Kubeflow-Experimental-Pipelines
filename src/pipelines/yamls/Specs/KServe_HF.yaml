@@ -7,5 +7,5 @@ metadata:
     "sidecar.istio.io/inject": "false"
 spec:
   predictor:
-    tensorflow:
+    pytorch:
       storageUri: "pvc://{volumeResourceName}/{experimentName}/outputs/{datasetName}"
