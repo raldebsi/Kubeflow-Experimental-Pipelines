@@ -1,0 +1,29 @@
+name: HuggingFace To MAR File
+description: "Convert HuggingFace model to MAR file"
+inputs:
+- {name: Model Name, type: String, description: 'The name of the model to train.'}
+- {name: Model Version, type: String, description: 'The version of the model to train.'}
+- {name: Model File, type: String, description: 'The path to the pytorch_model.bin.'}
+- {name: Extra Files, type: String, description: 'A comma separated list of files to be copied to the model store.'}
+- {name: Handler File, type: String, description: 'The path to the handler file.'}
+- {name: Requirements File, type: String, description: 'The path to the requirements.txt file.'}
+- {name: Export Path, type: String, description: 'The path to the MAR file.'}
+implementation:
+  container:
+    image: python:slim-buster
+    command:
+    - sh
+    - "-c"
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'torch-model-archiver' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'torch-model-archiver' --user) && "$0" "$@"
+    - torch-model-archiver
+    args: [
+      --model-name, {inputValue: Model Name},
+      --version, {inputValue: Model Version},
+      --export-path, {inputValue: Export Path},
+      --serialized-file, {inputValue: Model File},
+      --extra-files, {inputValue: Extra Files},
+      --handler, {inputValue: Handler File},
+      --requirements-file, {inputValue: Requirements File},
+    ]
