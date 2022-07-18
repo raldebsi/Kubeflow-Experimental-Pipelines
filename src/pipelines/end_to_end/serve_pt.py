@@ -5,7 +5,7 @@ import kfp
 import yaml
 from kfp import components
 from kfp.components import func_to_container_op
-from src.pipelines.common_utils import (add_pvolumes_func, get_volume_by_name, sanitize_service, setup_volume,
+from src.pipelines.common_utils import (add_pvolumes_func, cacheless_task, get_volume_by_name, sanitize_service, setup_volume,
                                         spec_from_file_format)
 
 
@@ -68,10 +68,14 @@ def move_mar_model(model_name: str, experiment_name: str, root_path: str) -> Non
 
     mar_name = "{}.mar".format(model_name)
     model_store_path = os.path.join(root_path, experiment_name, "model_store")
-
-    os.makedirs(model_store_path, exist_ok=True)
-
-    shutil.move(os.path.join(root_path, "tmp", mar_name), os.path.join(root_path, model_store_path))
+    mar_model = os.path.join(root_path, "tmp", mar_name)
+    
+    if os.path.exists(mar_model):
+        os.makedirs(model_store_path, exist_ok=True)
+        shutil.move(mar_model, os.path.join(root_path, model_store_path))
+    else:
+        raise Exception("Model not found at" + mar_model)        
+    
     
 class OMarFiles(NamedTuple):
     model_path: str
@@ -105,6 +109,7 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_ve
 
     get_mar_op = components.func_to_container_op(get_mar_required_files)
     get_mar_task = get_mar_op(experiment_name, dataset_name, mount_dir)
+    cacheless_task(get_mar_task)
 
     model_path = get_mar_task.outputs["model_path"]
     extra_files = get_mar_task.outputs["extra_files"]
@@ -130,6 +135,7 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_ve
     move_model_task = move_model_op(model_name, experiment_name, mount_dir)
     move_model_task = volumetrize(move_model_task)
     move_model_task = move_model_task.after(mar_convert_task)
+    cacheless_task(move_model_task)
 
 
     serve_task = create_serve_task(dataset_name, experiment_name, volume_name)

@@ -11,7 +11,6 @@ def sanitize_service(string: str):
         return name.lower().replace(" ", "_").replace("_", "-")
     return kfp.components.func_to_container_op(sanitize_service_name)(string).output
 
-
 def spec_from_file_format(yaml_file, **kwargs):
     with open(yaml_file, 'r') as f:
         component_spec = f.read()
@@ -75,3 +74,6 @@ def setup_volume(volume_name, *mount_points):
             mount_dict[mount_point] = mount_vol
 
     return add_pvolumes_func(mount_dict)
+
+def cacheless_task(task):
+    task.execution_options.caching_strategy.max_cache_staleness = "P0D"
