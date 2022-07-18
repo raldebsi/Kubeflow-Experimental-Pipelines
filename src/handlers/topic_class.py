@@ -1,9 +1,8 @@
 # My dependencies
-from fastapi import FastAPI
-import uvicorn
-from pydantic import BaseModel
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+# from fastapi import FastAPI
+# import uvicorn
+# from fastapi import FastAPI
+# from fastapi.middleware.cors import CORSMiddleware
 from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification
 import anltk
 import unicodedata

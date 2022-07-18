@@ -34,11 +34,22 @@ def create_serve_task(dataset_name, experiment_name, mount_name):
 def generate_inference_service_name(dataset_name, experiment_name) -> str:
     return "{}-{}".format(dataset_name, experiment_name).lower().replace('_', '-')
 
-def create_handler(handler_code: str) -> str:
-    with open("/tmp/handler.py", "w") as f:
+def create_handler(handler_code: str) -> NamedTuple(
+    "Outputs", [
+        ("handler_path", str),
+        ("requirements_path", str)
+    ]
+):
+    with open("/tmp/handler.py", "w", encoding='utf-8') as f:
         f.write(handler_code)
+    
+    with open("/tmp/requirements.txt", "w", encoding='utf-8') as f:
+        for r in [
+            "anltk"
+        ]:
+            f.write("{}\n".format(r))
 
-    return "/tmp/handler.py"
+    return "/tmp/handler.py", "/tmp/requirements.txt"
 
 def convert_model_to_mar(model_name: str, experiment_name: str, root_path: str) -> str:
     import os
@@ -71,8 +82,8 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_ve
     serve_task = volumetrize(serve_task)
 
     # Convert this to a utility function
-    handler_path = "src/handlers/topic_class.py"
-    handler_code = open(handler_path, encoding='utf-8').read()
+    handler_import_path = "src/handlers/topic_class.py"
+    handler_code = open(handler_import_path, encoding='utf-8').read()
 
     handler_op = components.func_to_container_op(create_handler)
     handler_task = handler_op(handler_code)
@@ -85,6 +96,9 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_ve
     extra_files = get_mar_task.outputs.extra_files
     model_name = dataset_name
 
+    handler_path = handler_task.outputs.handler_path
+    requirements_path = handler_task.outputs.requirements_path
+
     convertor_op = components.create_component_from_func(
         convert_model_to_mar,
         base_image="python:3.7",
@@ -96,6 +110,7 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_ve
             "--serialized-file", model_path,
             "--extra-files", extra_files,
             "--handler", handler_path,
+            "--requirements-file", requirements_path,
         ]
     )
 
