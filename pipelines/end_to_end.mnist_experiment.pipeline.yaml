@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: mnist-e2e-test-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-12T11:46:54.156837',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-18T21:56:06.419526',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Testin MNIST end to end
       pipeline", "inputs": [{"default": "mnist-e2e-test-ridhwan", "name": "name",
       "optional": true}, {"default": "200", "name": "training_steps", "optional":
@@ -475,7 +475,7 @@ spec:
           "Status JSON output of InferenceService", "name": "InferenceService Status",
           "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
           "cb3f9cdb6d51b05bddf7775e58a3b7351f9c923485fbc09a2c50eb6b281ba87a", "url":
-          "src/pipelines/yamls/Components/kfserve_launcher.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Action":
+          "src/pipelines/yamls/Components/kserve_launcher.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Action":
           "apply", "Autoscaling Target": "0", "Canary Traffic Percent": "100", "Custom
           Model Spec": "{}", "Enable Istio Sidecar": "True", "Framework": "", "InferenceService
           YAML": "apiVersion: serving.kubeflow.org/v1beta1\nkind: InferenceService\nmetadata:\n  annotations:\n    sidecar.istio.io/inject:

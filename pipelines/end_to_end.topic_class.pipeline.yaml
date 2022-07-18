@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: end-to-end-hugging-face-topic-classifier-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-12T11:46:53.970176',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-18T22:17:41.924264',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "End to End Topic Classiciation
       using HuggingFace Framework and CamelBert model", "inputs": [{"name": "experiment_name",
       "type": "String"}, {"name": "volume_name", "type": "String"}, {"name": "dataset_name",
@@ -530,7 +530,7 @@ spec:
           "Status JSON output of InferenceService", "name": "InferenceService Status",
           "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
           "cb3f9cdb6d51b05bddf7775e58a3b7351f9c923485fbc09a2c50eb6b281ba87a", "url":
-          "src/pipelines/yamls/Components/kfserve_launcher.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Action":
+          "src/pipelines/yamls/Components/kserve_launcher.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Action":
           "apply", "Autoscaling Target": "0", "Canary Traffic Percent": "100", "Custom
           Model Spec": "{}", "Enable Istio Sidecar": "True", "Framework": "", "InferenceService
           YAML": "apiVersion: kserve3/beta4\nkind: InferenceService\nmetadata:\n  annotations:\n    sidecar.istio.io/inject:

@@ -135,7 +135,7 @@ def create_serve_task(model_name, model_namespace, mount_name):
         volumeResourceName=mount_name,
     )
 
-    serve_op = components.load_component_from_file("src/pipelines/yamls/Components/kfserve_launcher.yaml")
+    serve_op = components.load_component_from_file("src/pipelines/yamls/Components/kserve_launcher.yaml")
     serve_task = serve_op(
         action="apply",
         inferenceservice_yaml=yaml.dump(infer_service),
