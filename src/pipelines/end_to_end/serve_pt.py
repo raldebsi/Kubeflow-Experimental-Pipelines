@@ -109,7 +109,6 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_ve
 
     get_mar_op = components.func_to_container_op(get_mar_required_files)
     get_mar_task = get_mar_op(experiment_name, dataset_name, mount_dir)
-    cacheless_task(get_mar_task)
 
     model_path = get_mar_task.outputs["model_path"]
     extra_files = get_mar_task.outputs["extra_files"]
@@ -130,6 +129,7 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_ve
         requirements_file = requirements_path,
     )
     mar_convert_task = volumetrize(mar_convert_task)
+    cacheless_task(mar_convert_task)
 
     move_model_op = components.func_to_container_op(move_mar_model)
     move_model_task = move_model_op(model_name, experiment_name, mount_dir)
