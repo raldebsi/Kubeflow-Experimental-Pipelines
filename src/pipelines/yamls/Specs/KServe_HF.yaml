@@ -1,11 +1,12 @@
 apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "{modelName}"
+  name: "{experimentName}"
   namespace: "{modelNamespace}"
   annotations:
     "sidecar.istio.io/inject": "false"
 spec:
   predictor:
     pytorch:
-      storageUri: "pvc://{volumeResourceName}/{experimentName}/outputs/{datasetName}"
+      storageUri: "pvc://{volumeResourceName}/{experimentName}" # It will automatically search in model_store
+      # storageUri: "pvc://{volumeResourceName}/{experimentName}/outputs/{datasetName}"
