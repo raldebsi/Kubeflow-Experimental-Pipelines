@@ -1,9 +1,15 @@
 import uuid
 
 import yaml
+import kfp
 from kfp import dsl
 from kfp.dsl._pipeline_param import sanitize_k8s_name
 from kfp.dsl._pipeline_volume import PipelineVolume
+
+def sanitize_service(string: str):
+    def sanitize_service_name(name: str) -> str:
+        return name.lower().replace(" ", "_").replace("_", "-")
+    return kfp.components.func_to_container_op(sanitize_service_name)(string).output
 
 
 def spec_from_file_format(yaml_file, **kwargs):
