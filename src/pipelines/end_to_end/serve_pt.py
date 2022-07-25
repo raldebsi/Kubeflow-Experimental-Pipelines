@@ -28,7 +28,12 @@ def create_serve_task(dataset_name: str, experiment_name: str, mount_name: str):
     serve_op = components.load_component_from_file("src/pipelines/yamls/Components/kserve_launcher.yaml")
     serve_task = serve_op(
         action="apply",
-        inferenceservice_yaml=yaml.dump(infer_service),
+        # inferenceservice_yaml=yaml.dump(infer_service),
+        model_name=dataset_name,
+        model_uri="pvc://{}/{}".format(mount_name, experiment_name),
+        framework="pytorch",
+        namespace="{{workflow.namespace}}",
+        enable_istio_sidecar=False,
     )
     
     # return serve_task, service_name
@@ -72,7 +77,10 @@ def move_mar_model(model_name: str, experiment_name: str, root_path: str) -> Non
     
     if os.path.exists(mar_model):
         os.makedirs(model_store_path, exist_ok=True)
-        shutil.move(mar_model, os.path.join(root_path, model_store_path))
+        move_path = os.path.join(root_path, model_store_path)
+        if os.path.exists(move_path):
+            shutil.rmtree(move_path)
+        shutil.move(mar_model, move_path)
     else:
         raise Exception("Model not found at" + mar_model)        
     
