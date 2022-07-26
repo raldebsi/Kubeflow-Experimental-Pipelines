@@ -1,7 +1,7 @@
 import kfp
 import yaml
 from kfp import components
-from src.pipelines.common_utils import spec_from_file_format
+from src.pipelines.common_utils import cacheless_task, spec_from_file_format
 
 
 def create_serve_task():
@@ -25,3 +25,4 @@ def create_serve_task():
 )
 def pipeline(): 
     serve_task = create_serve_task()
+    cacheless_task(serve_task)
