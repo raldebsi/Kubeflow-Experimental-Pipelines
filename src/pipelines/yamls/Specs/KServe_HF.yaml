@@ -8,5 +8,8 @@ metadata:
 spec:
   predictor:
     pytorch:
-      storageUri: "pvc://{volumeResourceName}/{experimentName}" # It will automatically search in model_store
+      storageUri: "pvc://{volumeResourceName}/{experimentName}"
+      # containers:
+      #   image: image-with-torchserve-nltk-etc
+
       # storageUri: "pvc://{volumeResourceName}/{experimentName}/outputs/{datasetName}"

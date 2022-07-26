@@ -26,4 +26,5 @@ implementation:
       --extra-files, {inputValue: Extra Files},
       --handler, {inputValue: Handler File},
       --requirements-file, {inputValue: Requirements File},
+      --force, # Force overwrite of existing files
     ]

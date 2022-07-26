@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 class TopicClassifier(BaseHandler, ABC):
     def __init__(self,):
         super().__init__()
+        logger.log(logging.INFO, "=============INITIALIZING TOPIC CLASSIFIER=============")
         self.initialized = False
 
     def initialize(self, ctx):
@@ -73,6 +74,7 @@ class TopicClassifier(BaseHandler, ABC):
         return encoded_dict, tokens, query_
     
     def inference(self, inputs,):
+        logger.log(logging.INFO, f"Inference started")
         with torch.no_grad():
             for key in inputs: # Convert all to device first
                 try: 

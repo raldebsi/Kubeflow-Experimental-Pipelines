@@ -10,11 +10,11 @@ from src.pipelines.common_utils import (add_pvolumes_func, cacheless_task, get_v
 
 
 def create_serve_task(dataset_name: str, experiment_name: str, mount_name: str):
-
+    from uuid import uuid4
     # gen_name_comp = func_to_container_op(generate_inference_service_name)
     # gen_name_task = gen_name_comp(dataset_name, experiment_name)
 
-    sane_service_name = sanitize_service(experiment_name)
+    sane_service_name = sanitize_service(experiment_name + '-' + uuid4().hex[:5])
     
     infer_service = spec_from_file_format(
         "src/pipelines/yamls/Specs/KServe_HF.yaml",
@@ -28,12 +28,12 @@ def create_serve_task(dataset_name: str, experiment_name: str, mount_name: str):
     serve_op = components.load_component_from_file("src/pipelines/yamls/Components/kserve_launcher.yaml")
     serve_task = serve_op(
         action="apply",
-        # inferenceservice_yaml=yaml.dump(infer_service),
-        model_name=dataset_name,
-        model_uri="pvc://{}/{}".format(mount_name, experiment_name),
-        framework="pytorch",
-        namespace="{{workflow.namespace}}",
-        enable_istio_sidecar=False,
+        inferenceservice_yaml=yaml.dump(infer_service),
+        # model_name=sane_service_name,
+        # model_uri="pvc://{}/{}".format(mount_name, experiment_name),
+        # framework="pytorch",
+        # namespace="{{workflow.namespace}}",
+        # enable_istio_sidecar=False,
     )
     
     # return serve_task, service_name
@@ -61,7 +61,8 @@ def create_handler(handler_code: str, root_path: str) -> OHandler:
     
     with open(requirements, "w", encoding='utf-8') as f:
         for r in [
-            "anltk"
+            "anltk",
+            "torchserve",
         ]:
             f.write("{}\n".format(r))
 
@@ -72,14 +73,15 @@ def move_mar_model(model_name: str, experiment_name: str, root_path: str) -> Non
     import shutil
 
     mar_name = "{}.mar".format(model_name)
-    model_store_path = os.path.join(root_path, experiment_name, "model_store")
+    model_store_path = os.path.join(root_path, experiment_name, "model-store")
     mar_model = os.path.join(root_path, "tmp", mar_name)
     
     if os.path.exists(mar_model):
         os.makedirs(model_store_path, exist_ok=True)
         move_path = os.path.join(root_path, model_store_path)
-        if os.path.exists(move_path):
-            shutil.rmtree(move_path)
+        file_path = os.path.join(move_path, mar_name)
+        if os.path.exists(file_path):
+            os.remove(file_path)
         shutil.move(mar_model, move_path)
     else:
         raise Exception("Model not found at" + mar_model)        
@@ -149,10 +151,4 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_ve
     serve_task = create_serve_task(dataset_name, experiment_name, volume_name)
     serve_task = volumetrize(serve_task)
     serve_task = serve_task.after(move_model_task)
-
-
-
-    # fastapi_deploy_op = kfp.components.create_component_from_func(
-	# 	fastapi_deploy,
-	# 	packages_to_install=['transformers[torch]', 'fastapi[standard]', 'uvicorn[standard]', 'anltk']
-	# )
+    cacheless_task(serve_task)
