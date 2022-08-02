@@ -3,3 +3,4 @@
 .pytest_cache
 __pycache__
 data
+other_images
