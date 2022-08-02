@@ -14,7 +14,7 @@ def create_serve_task(dataset_name: str, experiment_name: str, mount_name: str):
     # gen_name_comp = func_to_container_op(generate_inference_service_name)
     # gen_name_task = gen_name_comp(dataset_name, experiment_name)
 
-    sane_service_name = sanitize_service(experiment_name + '-' + uuid4().hex[:5])
+    sane_service_name = sanitize_service(str(experiment_name) + '-' + uuid4().hex[:5])
     
     infer_service = spec_from_file_format(
         "src/pipelines/yamls/Specs/KServe_HF.yaml",
@@ -99,7 +99,7 @@ def get_mar_required_files(experiment_name: str, dataset_name: str, root_path: s
     vocab = os.path.join(model_folder, "vocab.txt")
     config = os.path.join(model_folder, "config.json")
 
-    return model, "{},{}".format(vocab, config) # type: ignore
+    return model, "{},{}".format(vocab, config) # type: ignore 
 
 @kfp.dsl.pipeline(
     name="End to End Hugging Face Topic Classifier - Serving",
@@ -110,7 +110,7 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_ve
     volumetrize = setup_volume(volume_name, mount_dir)
 
     # Convert this to a utility function
-    handler_import_path = "src/handlers/topic_class.py"
+    handler_import_path = "src/handlers/topic_class_test.py"
     handler_code = open(handler_import_path, encoding='utf-8').read()
 
     handler_op = components.func_to_container_op(create_handler)
