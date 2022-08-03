@@ -27,7 +27,7 @@ def create_serve_task(dataset_name: str, experiment_name: str, mount_name: str):
 
     serve_op = components.load_component_from_file("src/pipelines/yamls/Components/kserve_launcher.yaml")
     serve_task = serve_op(
-        action="apply",
+        action="apply", 
         inferenceservice_yaml=yaml.dump(infer_service),
         # model_name=sane_service_name,
         # model_uri="pvc://{}/{}".format(mount_name, experiment_name),
@@ -63,6 +63,7 @@ def create_handler(handler_code: str, root_path: str) -> OHandler:
         for r in [
             "anltk",
             "torchserve",
+            "transformers",
         ]:
             f.write("{}\n".format(r))
 
@@ -110,8 +111,8 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_ve
     volumetrize = setup_volume(volume_name, mount_dir)
 
     # Convert this to a utility function
-    handler_import_path = "src/handlers/topic_class_test.py"
-    handler_code = open(handler_import_path, encoding='utf-8').read()
+    handler_import_path = "src/handlers/topic_class.py"
+    handler_code = open(handler_import_path, encoding='utf-8').read() 
 
     handler_op = components.func_to_container_op(create_handler)
     handler_task = handler_op(handler_code, mount_dir)
