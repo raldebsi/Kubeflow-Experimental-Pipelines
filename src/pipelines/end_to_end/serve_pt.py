@@ -9,12 +9,12 @@ from src.pipelines.common_utils import (add_pvolumes_func, cacheless_task, get_v
                                         spec_from_file_format)
 
 
-def create_serve_task(dataset_name: str, experiment_name: str, mount_name: str):
-    from uuid import uuid4
+def create_serve_task(dataset_name: str, experiment_name: str, mount_name: str, randomize_service_suffix: bool):
     # gen_name_comp = func_to_container_op(generate_inference_service_name)
     # gen_name_task = gen_name_comp(dataset_name, experiment_name)
 
-    sane_service_name = sanitize_service(experiment_name, True)
+    sane_service_name = sanitize_service(experiment_name, randomize_service_suffix)
+    randomSeed = generate_random_hex_service(randomize_service_suffix)
     
     infer_service = spec_from_file_format(
         "src/pipelines/yamls/Specs/KServe_HF.yaml",

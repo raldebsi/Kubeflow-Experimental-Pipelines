@@ -6,22 +6,22 @@ from kfp import dsl
 from kfp.dsl._pipeline_param import sanitize_k8s_name
 from kfp.dsl._pipeline_volume import PipelineVolume
 
-def generate_random_hex_service():
-    def generate_random() -> str:
+def generate_random_hex_service(randomize_service_suffix=True):
+    def generate_random(randomize_service_suffix: bool) -> str:
+        if not randomize_service_suffix: # No need to generate random
+            return ""
+        
         from uuid import uuid4
         return uuid4().hex[:7]
     
-    return cacheless_task(kfp.components.func_to_container_op(generate_random)()).output
+    return cacheless_task(kfp.components.func_to_container_op(generate_random)(randomize_service_suffix)).output
 
-def sanitize_service(string: str, add_random: bool = False):
+def sanitize_service(string: str, randomize_service_suffix):
     def sanitize_service_name(name: str, extra: str) -> str:
         if extra:
             name += '-' + extra[:5]
-        return name.lower().replace(" ", "_").replace("_", "-")
-    if add_random:
-        random_string = generate_random_hex_service()
-    else:
-        random_string = ""
+        return name.lower().replace(" ", "_").replace(".", "-").replace("_", "-")
+    random_string = generate_random_hex_service(randomize_service_suffix)
     return kfp.components.func_to_container_op(sanitize_service_name)(string, random_string).output
 
 def spec_from_file_format(yaml_file, **kwargs):
