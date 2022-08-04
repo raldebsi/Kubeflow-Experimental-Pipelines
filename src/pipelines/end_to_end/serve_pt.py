@@ -14,7 +14,7 @@ def create_serve_task(dataset_name: str, experiment_name: str, mount_name: str):
     # gen_name_comp = func_to_container_op(generate_inference_service_name)
     # gen_name_task = gen_name_comp(dataset_name, experiment_name)
 
-    sane_service_name = sanitize_service(str(experiment_name) + '-' + uuid4().hex[:5])
+    sane_service_name = sanitize_service(experiment_name, True)
     
     infer_service = spec_from_file_format(
         "src/pipelines/yamls/Specs/KServe_HF.yaml",
@@ -137,7 +137,7 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_ve
         model_file = model_path,
         extra_files = extra_files,
         handler_file = handler_path,
-        requirements_file = requirements_path,
+        requirements_file = requirements_path, 
     )
     mar_convert_task = volumetrize(mar_convert_task)
     cacheless_task(mar_convert_task)

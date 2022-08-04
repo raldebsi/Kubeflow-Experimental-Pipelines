@@ -6,10 +6,23 @@ from kfp import dsl
 from kfp.dsl._pipeline_param import sanitize_k8s_name
 from kfp.dsl._pipeline_volume import PipelineVolume
 
-def sanitize_service(string: str):
-    def sanitize_service_name(name: str) -> str:
+def generate_random_hex_service():
+    def generate_random() -> str:
+        from uuid import uuid4
+        return uuid4().hex[:7]
+    
+    return cacheless_task(kfp.components.func_to_container_op(generate_random)()).output
+
+def sanitize_service(string: str, add_random: bool = False):
+    def sanitize_service_name(name: str, extra: str) -> str:
+        if extra:
+            name += '-' + extra[:5]
         return name.lower().replace(" ", "_").replace("_", "-")
-    return kfp.components.func_to_container_op(sanitize_service_name)(string).output
+    if add_random:
+        random_string = generate_random_hex_service()
+    else:
+        random_string = ""
+    return kfp.components.func_to_container_op(sanitize_service_name)(string, random_string).output
 
 def spec_from_file_format(yaml_file, **kwargs):
     with open(yaml_file, 'r') as f:
@@ -77,3 +90,4 @@ def setup_volume(volume_name, *mount_points):
 
 def cacheless_task(task):
     task.execution_options.caching_strategy.max_cache_staleness = "P0D"
+    return task # To allow chaining
