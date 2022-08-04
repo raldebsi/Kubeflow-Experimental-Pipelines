@@ -9,7 +9,9 @@ spec:
   predictor:
     pytorch:
       storageUri: "pvc://{volumeResourceName}/{experimentName}"
-      # containers:
-      #   image: image-with-torchserve-nltk-etc
-
-      # storageUri: "pvc://{volumeResourceName}/{experimentName}/outputs/{datasetName}"
+      env: [
+        {
+          name: "random_seed",
+          value: "{randomSeed}" # This will prevent kserve from reusing the revision
+        }
+      ]

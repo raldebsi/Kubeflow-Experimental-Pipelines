@@ -5,7 +5,7 @@ import kfp
 import yaml
 from kfp import components
 from kfp.components import func_to_container_op
-from src.pipelines.common_utils import (add_pvolumes_func, cacheless_task, get_volume_by_name, sanitize_service, setup_volume,
+from src.pipelines.common_utils import (add_pvolumes_func, cacheless_task, generate_random_hex_service, get_volume_by_name, sanitize_service, setup_volume,
                                         spec_from_file_format)
 
 
@@ -23,6 +23,7 @@ def create_serve_task(dataset_name: str, experiment_name: str, mount_name: str, 
         volumeResourceName=mount_name,
         experimentName=experiment_name,
         datasetName=dataset_name,
+        randomSeed=randomSeed, # Prevent reuse of revision
     )
 
     serve_op = components.load_component_from_file("src/pipelines/yamls/Components/kserve_launcher.yaml")
@@ -36,13 +37,12 @@ def create_serve_task(dataset_name: str, experiment_name: str, mount_name: str, 
         # enable_istio_sidecar=False,
     )
     
-    # return serve_task, service_name
     return serve_task
 
 
 def generate_inference_service_name(dataset_name, experiment_name) -> str:
     return "{}-{}".format(dataset_name, experiment_name).lower().replace('_', '-')
-
+ 
 class OHandler(NamedTuple):
     temp_path: str
     handler_path: str
@@ -94,7 +94,6 @@ class OMarFiles(NamedTuple):
 
 def get_mar_required_files(experiment_name: str, dataset_name: str, root_path: str) -> OMarFiles:
     import os
-    # storageUri: "pvc://{volumeResourceName}/{experimentName}/outputs/{datasetName}"
     model_folder = os.path.join(root_path, experiment_name, "outputs", dataset_name)
     model = os.path.join(model_folder, "pytorch_model.bin")
     vocab = os.path.join(model_folder, "vocab.txt")
@@ -106,7 +105,7 @@ def get_mar_required_files(experiment_name: str, dataset_name: str, root_path: s
     name="End to End Hugging Face Topic Classifier - Serving",
     description="The Serving part of the E2E HF Topic Classifier - DEBUG ONLY"
 )
-def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_version: str = "0.0.1"): 
+def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_version: str = "1.0", randomize_service_suffix: bool = False): 
     mount_dir = "/store"
     volumetrize = setup_volume(volume_name, mount_dir)
 
@@ -149,7 +148,7 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str, model_ve
     cacheless_task(move_model_task)
 
 
-    serve_task = create_serve_task(dataset_name, experiment_name, volume_name)
+    serve_task = create_serve_task(dataset_name, experiment_name, volume_name, randomize_service_suffix)
     serve_task = volumetrize(serve_task)
     serve_task = serve_task.after(move_model_task)
     cacheless_task(serve_task)
