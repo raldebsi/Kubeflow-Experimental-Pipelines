@@ -15,8 +15,8 @@ implementation:
     - sh
     - "-c"
     - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
-        'torch-model-archiver' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
-        'torch-model-archiver' --user) && "$0" "$@"
+        'torch-model-archiver==0.6.0' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'torch-model-archiver==0.6.0' --user) && "$0" "$@"
     - torch-model-archiver
     args: [
       --model-name, {inputValue: Model Name},
