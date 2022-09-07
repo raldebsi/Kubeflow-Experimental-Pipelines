@@ -1,4 +1,3 @@
-from genericpath import isfile
 from typing import NamedTuple
 
 import kfp
@@ -9,12 +8,12 @@ from src.pipelines.common_utils import (add_pvolumes_func, cacheless_task, gener
                                         spec_from_file_format)
 
 
-def create_serve_task(dataset_name: str, experiment_name: str, mount_name: str, randomize_service_suffix: bool):
+def create_serve_task(dataset_name: str, experiment_name: str, mount_name: str, randomize_service_suffix: bool, use_seed: bool):
     # gen_name_comp = func_to_container_op(generate_inference_service_name)
     # gen_name_task = gen_name_comp(dataset_name, experiment_name)
 
     sane_service_name = sanitize_service(experiment_name, randomize_service_suffix)
-    randomSeed = generate_random_hex_service(randomize_service_suffix)
+    randomSeed = generate_random_hex_service(use_seed)
     
     infer_service = spec_from_file_format(
         "src/pipelines/yamls/Specs/KServe_HF.yaml",
@@ -198,7 +197,7 @@ def get_mar_required_files(experiment_name: str, dataset_name: str, root_path: s
     description="The Serving part of the E2E HF Topic Classifier - DEBUG ONLY"
 )
 def pipeline(experiment_name: str, volume_name: str, dataset_name: str,
-    model_version: str = "1.0", randomize_service_suffix: bool = False, additional_requirements: list = ["anltk","torchserve","transformers",],
+    model_version: str = "1.0", randomize_service_suffix: bool = False, use_seed: bool = True, additional_requirements: list = ["anltk","torchserve","transformers",],
     model_serve_name: str = "", model_serve_threads_count: int = 4, model_serve_queue_size: int = 10,
     model_serve_install_dependencies: bool = True, model_serve_is_default: bool = True, model_serve_workers: int = 1, model_serve_workers_max: int = 5,
     model_serve_batch_size: int = 1, model_serve_timeout: int = 120,
@@ -255,7 +254,7 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str,
     create_config_task = volumetrize(create_config_task)
 
 
-    serve_task = create_serve_task(dataset_name, experiment_name, volume_name, randomize_service_suffix)
+    serve_task = create_serve_task(dataset_name, experiment_name, volume_name, randomize_service_suffix, use_seed)
     serve_task = volumetrize(serve_task)
     serve_task = serve_task.after(move_model_task).after(create_config_task)
     cacheless_task(serve_task)
