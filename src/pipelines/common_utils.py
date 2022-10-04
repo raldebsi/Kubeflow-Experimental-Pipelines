@@ -18,9 +18,12 @@ def generate_random_hex_service(randomize_service_suffix=True):
 
 def sanitize_service(string: str, randomize_service_suffix):
     def sanitize_service_name(name: str, extra: str) -> str:
+        print("Sanitizing", name)
         if extra:
             name += '-' + extra[:5]
-        return name.lower().replace(" ", "_").replace(".", "-").replace("_", "-")
+        s = name.lower().replace(" ", "_").replace(".", "-").replace("_", "-")
+        print("Sanitized", s)
+        return s
     random_string = generate_random_hex_service(randomize_service_suffix)
     return kfp.components.func_to_container_op(sanitize_service_name)(string, random_string).output
 
