@@ -1,43 +1,105 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: end-to-end-hugging-face-topic-classifier-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-12T11:46:53.756578',
-    pipelines.kubeflow.org/pipeline_spec: '{"description": "End to End Topic Classiciation
-      using HuggingFace Framework and CamelBert model", "inputs": [{"name": "experiment_name",
+  generateName: end-to-end-hugging-face-topic-classifier-serving-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-10-04T11:56:42.892154',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "The Serving part of the
+      E2E HF Topic Classifier - DEBUG ONLY", "inputs": [{"name": "experiment_name",
       "type": "String"}, {"name": "volume_name", "type": "String"}, {"name": "dataset_name",
-      "type": "String"}], "name": "End to End Hugging Face Topic Classifier"}'}
+      "type": "String"}, {"default": "1.0", "name": "model_version", "optional": true,
+      "type": "String"}, {"default": "False", "name": "randomize_service_suffix",
+      "optional": true, "type": "Boolean"}, {"default": "True", "name": "use_seed",
+      "optional": true, "type": "Boolean"}, {"default": "[\"anltk\", \"torchserve\",
+      \"transformers\"]", "name": "additional_requirements", "optional": true, "type":
+      "JsonArray"}, {"default": "", "name": "model_serve_name", "optional": true,
+      "type": "String"}, {"default": "4", "name": "model_serve_threads_count", "optional":
+      true, "type": "Integer"}, {"default": "10", "name": "model_serve_queue_size",
+      "optional": true, "type": "Integer"}, {"default": "True", "name": "model_serve_install_dependencies",
+      "optional": true, "type": "Boolean"}, {"default": "True", "name": "model_serve_is_default",
+      "optional": true, "type": "Boolean"}, {"default": "1", "name": "model_serve_workers",
+      "optional": true, "type": "Integer"}, {"default": "5", "name": "model_serve_workers_max",
+      "optional": true, "type": "Integer"}, {"default": "1", "name": "model_serve_batch_size",
+      "optional": true, "type": "Integer"}, {"default": "120", "name": "model_serve_timeout",
+      "optional": true, "type": "Integer"}], "name": "End to End Hugging Face Topic
+      Classifier - Serving"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12}
 spec:
-  entrypoint: end-to-end-hugging-face-topic-classifier
+  entrypoint: end-to-end-hugging-face-topic-classifier-serving
   templates:
-  - name: end-to-end-hugging-face-topic-classifier
-    inputs:
-      parameters:
-      - {name: dataset_name}
-      - {name: experiment_name}
-      - {name: volume_name}
-    dag:
-      tasks:
-      - name: generate-inference-service-name
-        template: generate-inference-service-name
-        arguments:
-          parameters:
-          - {name: dataset_name, value: '{{inputs.parameters.dataset_name}}'}
-          - {name: experiment_name, value: '{{inputs.parameters.experiment_name}}'}
-      - name: serve-a-model-with-kserve
-        template: serve-a-model-with-kserve
-        dependencies: [generate-inference-service-name]
-        arguments:
-          parameters:
-          - {name: dataset_name, value: '{{inputs.parameters.dataset_name}}'}
-          - {name: experiment_name, value: '{{inputs.parameters.experiment_name}}'}
-          - {name: generate-inference-service-name-Output, value: '{{tasks.generate-inference-service-name.outputs.parameters.generate-inference-service-name-Output}}'}
-          - {name: volume_name, value: '{{inputs.parameters.volume_name}}'}
-  - name: generate-inference-service-name
+  - name: create-handler
     container:
-      args: [--dataset-name, '{{inputs.parameters.dataset_name}}', --experiment-name,
-        '{{inputs.parameters.experiment_name}}', '----output-paths', /tmp/outputs/Output/data]
+      args:
+      - --handler-code
+      - "from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification\n\
+        import anltk\nimport unicodedata\nimport torch\n\n# Guide dependencies\nfrom\
+        \ abc import ABC\nimport logging\nimport torch\nfrom ts.torch_handler.base_handler\
+        \ import BaseHandler\n\nlogger = logging.getLogger(__name__)\n\nclass TopicClassifier(BaseHandler,\
+        \ ABC):\n    def __init__(self,):\n        super().__init__()\n        self.initialized\
+        \ = False\n\n    def initialize(self, ctx):\n        logger.log(logging.INFO,\
+        \ \"=============INITIALIZING TOPIC CLASSIFIER=============\")\n        self.manifest\
+        \ = ctx.manifest\n\n        properties = ctx.system_properties\n        model_path\
+        \ = properties.get(\"model_dir\")\n        self.device = torch.device(\"cuda:\"\
+        \ + str(properties.get(\"gpu_id\")) if torch.cuda.is_available() else \"cpu\"\
+        )\n\n        self.config = AutoConfig.from_pretrained(model_path)\n      \
+        \  self.tokenizer = AutoTokenizer.from_pretrained(model_path, config=self.config)\n\
+        \        self.model = AutoModelForSequenceClassification.from_pretrained(model_path,\
+        \ config=self.config)\n\n        self.model.to(self.device)\n        self.model.eval()\n\
+        \n        # Optional Mapping File\n        self.labels = list(self.config.label2id.keys())\n\
+        \n\n        logger.log(logging.INFO, f\"Initialized Topic Classifier\")\n\
+        \        self.initialized = True\n\n    def preprocess_(self, query: str)\
+        \ -> str:\n        query = query.strip()\n        if not query:\n        \
+        \    return \"\"\n        query_ = unicodedata.normalize('NFC', query)\n \
+        \       query_ = ' '.join(anltk.tokenize_words(query_))\n        query_ =\
+        \ anltk.remove_non_alpha(query_, stop_list=' ?,:\".')\n        query_ = anltk.fold_white_spaces(query_)\n\
+        \        query_ = query_.strip()\n        return query_\n\n    def preprocess(self,\
+        \ data):\n        logger.log(logging.INFO, f\"Preprocessing started\")\n \
+        \       logger.log(logging.INFO, f\"data is {data}\")\n        query = data[0]\n\
+        \        query = query.get(\"body\", {\"text\": query.get(\"text\", \"\")}).get(\"\
+        text\", \"\")\n        query = self.preprocess_(query)\n        if not query.strip():\n\
+        \            raise Exception(\"No text found in query\")\n        logger.log(logging.INFO,\
+        \ f\"query is {query}\")\n\n        query_ = self.preprocess_(query)\n\n \
+        \       # tokens = self.tokenizer.tokenize(query_) # Debugging only\n\n  \
+        \      encoded_dict = self.tokenizer.encode_plus(\n                      \
+        \  query_,                      # Sentence to encode.\n                  \
+        \      add_special_tokens = True, # Add '[CLS]' and '[SEP]'\n            \
+        \            max_length=512,           # Pad & truncate all sentences.\n \
+        \                       truncation=True,\n                        padding='max_length',\
+        \  # Padding strategy\n                        pad_to_max_length = True,\n\
+        \                        return_attention_mask = True,   # Construct attn.\
+        \ masks.\n                        return_tensors = 'pt',     # Return pytorch\
+        \ tensors.\n        )\n        return (encoded_dict, query_)\n    \n    def\
+        \ inference(self, inputs,):\n        with torch.no_grad():\n            for\
+        \ key, val in inputs.items(): # Convert all to device first\n            \
+        \    try: \n                    inputs[key] = val.to(self.device)\n      \
+        \          except:\n                    pass\n        outputs = self.model(**inputs)\n\
+        \        \n        predictions = torch.nn.functional.softmax(outputs[0].squeeze(),\
+        \ dim=0)\n        pred = torch.argmax(predictions, dim=0)\n\n        correct\
+        \ = self.labels[pred.item()]\n\n        logger.log(logging.INFO, f\"Predicted:\
+        \ {correct}\")\n\n        class_dict = {}\n        labeled_dict = {\"Correct\"\
+        : correct, \"Classes\": class_dict}\n        for label in self.labels:\n \
+        \           class_dict[label] = \"{:.3f}\".format(predictions[self.config.label2id[label]].item())\n\
+        \        \n        return labeled_dict\n\n    def postprocess(self, data:\
+        \ dict, query):\n        # data[\"Preprocessed\"] = query # No Need\n    \
+        \    return [data] # Return the data as is but in a list\n\n_service = TopicClassifier()\n\
+        \nlogger.log(logging.INFO, f\"My Name is {__name__}\")\n\ndef handle(data,\
+        \ context):\n    try:\n        if not _service.initialized:\n            _service.initialize(context)\n\
+        \        \n        if data is None:\n            return None\n        \n \
+        \       logger.log(logging.INFO, f\"Received data: {data}\")\n        \n \
+        \       inputs, query = _service.preprocess(data)\n        logging.log(logging.INFO,\
+        \ f\"In Handle, the type of inputs is {type(inputs)}\")\n        output_dict\
+        \ = _service.inference(inputs)\n        outputs = _service.postprocess(output_dict,\
+        \ query)\n\n        return outputs\n    except Exception as e:\n        logger.error(e)\n\
+        \        raise e"
+      - --experiment-name
+      - '{{inputs.parameters.experiment_name}}'
+      - --root-path
+      - /store
+      - --additional-requirements
+      - '{{inputs.parameters.additional_requirements}}'
+      - '----output-paths'
+      - /tmp/outputs/temp_path/data
+      - /tmp/outputs/handler_path/data
+      - /tmp/outputs/requirements_path/data
       command:
       - sh
       - -ec
@@ -46,8 +108,514 @@ spec:
         printf "%s" "$0" > "$program_path"
         python3 -u "$program_path" "$@"
       - |
-        def generate_inference_service_name(dataset_name, experiment_name):
-            return "{}-{}".format(dataset_name, experiment_name).lower().replace('_', '-')
+        def create_handler(handler_code, experiment_name, root_path, additional_requirements):
+            import os
+
+            temp_path = os.path.join(root_path, experiment_name, "handler")
+            os.makedirs(temp_path, exist_ok=True)
+            handler = os.path.join(temp_path, "handler.py")
+            requirements = os.path.join(temp_path, "requirements.txt")
+
+            print("Temp Path", temp_path)
+            print("Handler", handler)
+            print("Requirements", requirements)
+
+            with open(handler, "w", encoding='utf-8') as f:
+                f.write(handler_code)
+
+            with open(requirements, "w", encoding='utf-8') as f:
+                for r in additional_requirements:
+                    f.write("{}\n".format(r))
+
+            return temp_path, handler, requirements # type: ignore
+
+        def _serialize_str(str_value: str) -> str:
+            if not isinstance(str_value, str):
+                raise TypeError('Value "{}" has type "{}" instead of str.'.format(
+                    str(str_value), str(type(str_value))))
+            return str_value
+
+        import json
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Create handler', description='')
+        _parser.add_argument("--handler-code", dest="handler_code", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--experiment-name", dest="experiment_name", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--root-path", dest="root_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--additional-requirements", dest="additional_requirements", type=json.loads, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=3)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = create_handler(**_parsed_args)
+
+        _output_serializers = [
+            _serialize_str,
+            _serialize_str,
+            _serialize_str,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: python:3.7
+      volumeMounts:
+      - {mountPath: /store, name: volume-bind}
+    inputs:
+      parameters:
+      - {name: additional_requirements}
+      - {name: experiment_name}
+      - {name: volume_name}
+    outputs:
+      parameters:
+      - name: create-handler-handler_path
+        valueFrom: {path: /tmp/outputs/handler_path/data}
+      - name: create-handler-requirements_path
+        valueFrom: {path: /tmp/outputs/requirements_path/data}
+      - name: create-handler-temp_path
+        valueFrom: {path: /tmp/outputs/temp_path/data}
+      artifacts:
+      - {name: create-handler-handler_path, path: /tmp/outputs/handler_path/data}
+      - {name: create-handler-requirements_path, path: /tmp/outputs/requirements_path/data}
+      - {name: create-handler-temp_path, path: /tmp/outputs/temp_path/data}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--handler-code", {"inputValue": "handler_code"}, "--experiment-name",
+          {"inputValue": "experiment_name"}, "--root-path", {"inputValue": "root_path"},
+          "--additional-requirements", {"inputValue": "additional_requirements"},
+          "----output-paths", {"outputPath": "temp_path"}, {"outputPath": "handler_path"},
+          {"outputPath": "requirements_path"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf
+          \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+          "def create_handler(handler_code, experiment_name, root_path, additional_requirements):\n    import
+          os\n\n    temp_path = os.path.join(root_path, experiment_name, \"handler\")\n    os.makedirs(temp_path,
+          exist_ok=True)\n    handler = os.path.join(temp_path, \"handler.py\")\n    requirements
+          = os.path.join(temp_path, \"requirements.txt\")\n\n    print(\"Temp Path\",
+          temp_path)\n    print(\"Handler\", handler)\n    print(\"Requirements\",
+          requirements)\n\n    with open(handler, \"w\", encoding=''utf-8'') as f:\n        f.write(handler_code)\n\n    with
+          open(requirements, \"w\", encoding=''utf-8'') as f:\n        for r in additional_requirements:\n            f.write(\"{}\\n\".format(r))\n\n    return
+          temp_path, handler, requirements # type: ignore\n\ndef _serialize_str(str_value:
+          str) -> str:\n    if not isinstance(str_value, str):\n        raise TypeError(''Value
+          \"{}\" has type \"{}\" instead of str.''.format(\n            str(str_value),
+          str(type(str_value))))\n    return str_value\n\nimport json\nimport argparse\n_parser
+          = argparse.ArgumentParser(prog=''Create handler'', description='''')\n_parser.add_argument(\"--handler-code\",
+          dest=\"handler_code\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--experiment-name\",
+          dest=\"experiment_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--root-path\",
+          dest=\"root_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--additional-requirements\",
+          dest=\"additional_requirements\", type=json.loads, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=3)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = create_handler(**_parsed_args)\n\n_output_serializers
+          = [\n    _serialize_str,\n    _serialize_str,\n    _serialize_str,\n\n]\n\nimport
+          os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "handler_code", "type": "String"},
+          {"name": "experiment_name", "type": "String"}, {"name": "root_path", "type":
+          "String"}, {"name": "additional_requirements", "type": "JsonArray"}], "name":
+          "Create handler", "outputs": [{"name": "temp_path", "type": "String"}, {"name":
+          "handler_path", "type": "String"}, {"name": "requirements_path", "type":
+          "String"}]}', pipelines.kubeflow.org/component_ref: '{}', pipelines.kubeflow.org/arguments.parameters: '{"additional_requirements":
+          "{{inputs.parameters.additional_requirements}}", "experiment_name": "{{inputs.parameters.experiment_name}}",
+          "handler_code": "from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification\nimport
+          anltk\nimport unicodedata\nimport torch\n\n# Guide dependencies\nfrom abc
+          import ABC\nimport logging\nimport torch\nfrom ts.torch_handler.base_handler
+          import BaseHandler\n\nlogger = logging.getLogger(__name__)\n\nclass TopicClassifier(BaseHandler,
+          ABC):\n    def __init__(self,):\n        super().__init__()\n        self.initialized
+          = False\n\n    def initialize(self, ctx):\n        logger.log(logging.INFO,
+          \"=============INITIALIZING TOPIC CLASSIFIER=============\")\n        self.manifest
+          = ctx.manifest\n\n        properties = ctx.system_properties\n        model_path
+          = properties.get(\"model_dir\")\n        self.device = torch.device(\"cuda:\"
+          + str(properties.get(\"gpu_id\")) if torch.cuda.is_available() else \"cpu\")\n\n        self.config
+          = AutoConfig.from_pretrained(model_path)\n        self.tokenizer = AutoTokenizer.from_pretrained(model_path,
+          config=self.config)\n        self.model = AutoModelForSequenceClassification.from_pretrained(model_path,
+          config=self.config)\n\n        self.model.to(self.device)\n        self.model.eval()\n\n        #
+          Optional Mapping File\n        self.labels = list(self.config.label2id.keys())\n\n\n        logger.log(logging.INFO,
+          f\"Initialized Topic Classifier\")\n        self.initialized = True\n\n    def
+          preprocess_(self, query: str) -> str:\n        query = query.strip()\n        if
+          not query:\n            return \"\"\n        query_ = unicodedata.normalize(''NFC'',
+          query)\n        query_ = '' ''.join(anltk.tokenize_words(query_))\n        query_
+          = anltk.remove_non_alpha(query_, stop_list='' ?,:\".'')\n        query_
+          = anltk.fold_white_spaces(query_)\n        query_ = query_.strip()\n        return
+          query_\n\n    def preprocess(self, data):\n        logger.log(logging.INFO,
+          f\"Preprocessing started\")\n        logger.log(logging.INFO, f\"data is
+          {data}\")\n        query = data[0]\n        query = query.get(\"body\",
+          {\"text\": query.get(\"text\", \"\")}).get(\"text\", \"\")\n        query
+          = self.preprocess_(query)\n        if not query.strip():\n            raise
+          Exception(\"No text found in query\")\n        logger.log(logging.INFO,
+          f\"query is {query}\")\n\n        query_ = self.preprocess_(query)\n\n        #
+          tokens = self.tokenizer.tokenize(query_) # Debugging only\n\n        encoded_dict
+          = self.tokenizer.encode_plus(\n                        query_,                      #
+          Sentence to encode.\n                        add_special_tokens = True,
+          # Add ''[CLS]'' and ''[SEP]''\n                        max_length=512,           #
+          Pad & truncate all sentences.\n                        truncation=True,\n                        padding=''max_length'',  #
+          Padding strategy\n                        pad_to_max_length = True,\n                        return_attention_mask
+          = True,   # Construct attn. masks.\n                        return_tensors
+          = ''pt'',     # Return pytorch tensors.\n        )\n        return (encoded_dict,
+          query_)\n    \n    def inference(self, inputs,):\n        with torch.no_grad():\n            for
+          key, val in inputs.items(): # Convert all to device first\n                try:
+          \n                    inputs[key] = val.to(self.device)\n                except:\n                    pass\n        outputs
+          = self.model(**inputs)\n        \n        predictions = torch.nn.functional.softmax(outputs[0].squeeze(),
+          dim=0)\n        pred = torch.argmax(predictions, dim=0)\n\n        correct
+          = self.labels[pred.item()]\n\n        logger.log(logging.INFO, f\"Predicted:
+          {correct}\")\n\n        class_dict = {}\n        labeled_dict = {\"Correct\":
+          correct, \"Classes\": class_dict}\n        for label in self.labels:\n            class_dict[label]
+          = \"{:.3f}\".format(predictions[self.config.label2id[label]].item())\n        \n        return
+          labeled_dict\n\n    def postprocess(self, data: dict, query):\n        #
+          data[\"Preprocessed\"] = query # No Need\n        return [data] # Return
+          the data as is but in a list\n\n_service = TopicClassifier()\n\nlogger.log(logging.INFO,
+          f\"My Name is {__name__}\")\n\ndef handle(data, context):\n    try:\n        if
+          not _service.initialized:\n            _service.initialize(context)\n        \n        if
+          data is None:\n            return None\n        \n        logger.log(logging.INFO,
+          f\"Received data: {data}\")\n        \n        inputs, query = _service.preprocess(data)\n        logging.log(logging.INFO,
+          f\"In Handle, the type of inputs is {type(inputs)}\")\n        output_dict
+          = _service.inference(inputs)\n        outputs = _service.postprocess(output_dict,
+          query)\n\n        return outputs\n    except Exception as e:\n        logger.error(e)\n        raise
+          e", "root_path": "/store"}'}
+    volumes:
+    - name: volume-bind
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.volume_name}}'}
+  - name: create-mar-config
+    container:
+      args: [--experiment-name, '{{inputs.parameters.experiment_name}}', --root-path,
+        /store, --mar-file, '{{inputs.parameters.dataset_name}}', --model-name, '{{inputs.parameters.model_serve_name}}',
+        --model-version, '{{inputs.parameters.model_version}}', --threads-count, '{{inputs.parameters.model_serve_threads_count}}',
+        --job-queue-size, '{{inputs.parameters.model_serve_queue_size}}', --install-dependencies,
+        '{{inputs.parameters.model_serve_install_dependencies}}', --is-default, '{{inputs.parameters.model_serve_is_default}}',
+        --workers-count, '{{inputs.parameters.model_serve_workers}}', --workers-max,
+        '{{inputs.parameters.model_serve_workers_max}}', --batch-size, '{{inputs.parameters.model_serve_batch_size}}',
+        --timeout, '{{inputs.parameters.model_serve_timeout}}']
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - "def create_mar_config(experiment_name, root_path, mar_file, model_name =\
+        \ \"\", model_version = \"1.0\", # Pipeline Config\n        threads_count\
+        \ = 4, job_queue_size = 10, install_dependencies = True, is_default = True,\
+        \ # Config Config\n        workers_count = 1, workers_max = 5, batch_size\
+        \ = 1, timeout = 120, # Model Config\n):\n    import os\n    import json\n\
+        \n    mar_file = mar_file if mar_file.endswith(\".mar\") else mar_file + \"\
+        .mar\"\n    model_name = model_name or mar_file.rsplit(\".\", 1)[0] # If Empty\
+        \ replace with mar file\n    model_name = model_name.replace(\"-\", \"\").lower()\n\
+        \n    experiment_path = os.path.join(root_path, experiment_name)\n    print(\"\
+        Experiment Path is\", experiment_path)\n    model_store = os.path.join(experiment_path,\
+        \ \"model-store\")\n    config_dir = os.path.join(experiment_path, \"config\"\
+        )\n    config_path = os.path.join(config_dir, \"config.properties\")\n\n \
+        \   previous_models = {}\n\n    os.makedirs(config_dir, exist_ok=True)\n\n\
+        \    if os.path.isfile(config_path):\n        with open(config_path, \"r\"\
+        , encoding='utf-8') as f:\n            for line in f:\n                line\
+        \ = line.strip()\n                if line[0] == \"#\":\n                 \
+        \   continue\n                key, val = line.split(\"=\")\n             \
+        \   if key == \"model_snapshot\":\n                    previous_models = json.loads(val.strip())\n\
+        \    if previous_models:\n        print(\"Found Previous Snapshot\")\n   \
+        \     print(previous_models)\n    # mar_files = [ file.rsplit(\".\", 1)[0]\n\
+        \    #     for file in os.listdir(model_store)\n    #     if file.lower().endswith(\"\
+        .mar\")\n    # ]\n\n    if model_version in previous_models.get(\"models\"\
+        , {}).get(model_name, {}):\n        replace_mode = True\n    else:\n     \
+        \   replace_mode = False\n\n    model_snapshot = {\n        \"name\": \"startup.cfg\"\
+        ,\n        \"modelCount\": previous_models.get(\"modelCount\", 0) + (1 if\
+        \ not replace_mode else 0),\n        \"models\": previous_models.get(\"models\"\
+        , {}) \n    }\n\n    model_dict = model_snapshot[\"models\"].setdefault(model_name,\
+        \ {})\n    if is_default:\n        print(\"Setting Default Model to\", model_version)\n\
+        \        for model_version_dict in model_snapshot[\"models\"][model_name].values():\n\
+        \            model_version_dict[\"defaultVersion\"] = False # Reset all to\
+        \ false since I am the new default\n    else:\n        print(\"Default model\
+        \ unchanged\")\n\n    model_dict[model_version] = {\n        \"defaultVersion\"\
+        : is_default,\n        \"marName\": mar_file,\n        \"minWorkers\": workers_count,\n\
+        \        \"maxWorkers\": workers_max,\n        \"batchSize\": batch_size,\n\
+        \        \"maxBatchDelay\": 5000,\n        \"responseTimeout\": timeout,\n\
+        \    }\n\n    config_spec = {\n        \"inference_address\": \"http://0.0.0.0:8085\"\
+        ,\n        \"management_address\": \"http://0.0.0.0:8085\",\n        \"metrics_address\"\
+        : \"http://0.0.0.0:8082\",\n        \"enable_metrics_api\": True,\n      \
+        \  \"metrics_format\": \"prometheus\",\n        \"number_of_netty_threads\"\
+        : threads_count,\n        \"job_queue_size\": job_queue_size,\n        \"\
+        model_store\": \"/mnt/models/model-store\",\n        \"model_snapshot\": json.dumps(model_snapshot),\n\
+        \        \"install_py_dep_per_model\": install_dependencies,\n    }\n\n  \
+        \  print(\"Saving config to\", config_path)\n    with open(config_path, \"\
+        w\", encoding='utf-8') as f:\n        for key, val in config_spec.items():\n\
+        \            if isinstance(val, (set, tuple)):\n                val = list(val)\n\
+        \            if isinstance(val, (bool, dict, list)):\n                val\
+        \ = json.dumps(val)\n            s = \"{}={}\".format(key, val)\n        \
+        \    print(s)\n            f.write(s + \"\\n\")\n        f.write(\"# AutoGenerated\
+        \ by KFP.\" \"{{workflow.name}}\")\n\ndef _deserialize_bool(s) -> bool:\n\
+        \    from distutils.util import strtobool\n    return strtobool(s) == 1\n\n\
+        import argparse\n_parser = argparse.ArgumentParser(prog='Create mar config',\
+        \ description='')\n_parser.add_argument(\"--experiment-name\", dest=\"experiment_name\"\
+        , type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+        --root-path\", dest=\"root_path\", type=str, required=True, default=argparse.SUPPRESS)\n\
+        _parser.add_argument(\"--mar-file\", dest=\"mar_file\", type=str, required=True,\
+        \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-name\", dest=\"\
+        model_name\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+        --model-version\", dest=\"model_version\", type=str, required=False, default=argparse.SUPPRESS)\n\
+        _parser.add_argument(\"--threads-count\", dest=\"threads_count\", type=int,\
+        \ required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--job-queue-size\"\
+        , dest=\"job_queue_size\", type=int, required=False, default=argparse.SUPPRESS)\n\
+        _parser.add_argument(\"--install-dependencies\", dest=\"install_dependencies\"\
+        , type=_deserialize_bool, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+        --is-default\", dest=\"is_default\", type=_deserialize_bool, required=False,\
+        \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--workers-count\", dest=\"\
+        workers_count\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+        --workers-max\", dest=\"workers_max\", type=int, required=False, default=argparse.SUPPRESS)\n\
+        _parser.add_argument(\"--batch-size\", dest=\"batch_size\", type=int, required=False,\
+        \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--timeout\", dest=\"\
+        timeout\", type=int, required=False, default=argparse.SUPPRESS)\n_parsed_args\
+        \ = vars(_parser.parse_args())\n\n_outputs = create_mar_config(**_parsed_args)\n"
+      image: python:3.7
+      volumeMounts:
+      - {mountPath: /store, name: volume-bind}
+    inputs:
+      parameters:
+      - {name: dataset_name}
+      - {name: experiment_name}
+      - {name: model_serve_batch_size}
+      - {name: model_serve_install_dependencies}
+      - {name: model_serve_is_default}
+      - {name: model_serve_name}
+      - {name: model_serve_queue_size}
+      - {name: model_serve_threads_count}
+      - {name: model_serve_timeout}
+      - {name: model_serve_workers}
+      - {name: model_serve_workers_max}
+      - {name: model_version}
+      - {name: volume_name}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--experiment-name", {"inputValue": "experiment_name"}, "--root-path",
+          {"inputValue": "root_path"}, "--mar-file", {"inputValue": "mar_file"}, {"if":
+          {"cond": {"isPresent": "model_name"}, "then": ["--model-name", {"inputValue":
+          "model_name"}]}}, {"if": {"cond": {"isPresent": "model_version"}, "then":
+          ["--model-version", {"inputValue": "model_version"}]}}, {"if": {"cond":
+          {"isPresent": "threads_count"}, "then": ["--threads-count", {"inputValue":
+          "threads_count"}]}}, {"if": {"cond": {"isPresent": "job_queue_size"}, "then":
+          ["--job-queue-size", {"inputValue": "job_queue_size"}]}}, {"if": {"cond":
+          {"isPresent": "install_dependencies"}, "then": ["--install-dependencies",
+          {"inputValue": "install_dependencies"}]}}, {"if": {"cond": {"isPresent":
+          "is_default"}, "then": ["--is-default", {"inputValue": "is_default"}]}},
+          {"if": {"cond": {"isPresent": "workers_count"}, "then": ["--workers-count",
+          {"inputValue": "workers_count"}]}}, {"if": {"cond": {"isPresent": "workers_max"},
+          "then": ["--workers-max", {"inputValue": "workers_max"}]}}, {"if": {"cond":
+          {"isPresent": "batch_size"}, "then": ["--batch-size", {"inputValue": "batch_size"}]}},
+          {"if": {"cond": {"isPresent": "timeout"}, "then": ["--timeout", {"inputValue":
+          "timeout"}]}}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf
+          \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+          "def create_mar_config(experiment_name, root_path, mar_file, model_name
+          = \"\", model_version = \"1.0\", # Pipeline Config\n        threads_count
+          = 4, job_queue_size = 10, install_dependencies = True, is_default = True,
+          # Config Config\n        workers_count = 1, workers_max = 5, batch_size
+          = 1, timeout = 120, # Model Config\n):\n    import os\n    import json\n\n    mar_file
+          = mar_file if mar_file.endswith(\".mar\") else mar_file + \".mar\"\n    model_name
+          = model_name or mar_file.rsplit(\".\", 1)[0] # If Empty replace with mar
+          file\n    model_name = model_name.replace(\"-\", \"\").lower()\n\n    experiment_path
+          = os.path.join(root_path, experiment_name)\n    print(\"Experiment Path
+          is\", experiment_path)\n    model_store = os.path.join(experiment_path,
+          \"model-store\")\n    config_dir = os.path.join(experiment_path, \"config\")\n    config_path
+          = os.path.join(config_dir, \"config.properties\")\n\n    previous_models
+          = {}\n\n    os.makedirs(config_dir, exist_ok=True)\n\n    if os.path.isfile(config_path):\n        with
+          open(config_path, \"r\", encoding=''utf-8'') as f:\n            for line
+          in f:\n                line = line.strip()\n                if line[0] ==
+          \"#\":\n                    continue\n                key, val = line.split(\"=\")\n                if
+          key == \"model_snapshot\":\n                    previous_models = json.loads(val.strip())\n    if
+          previous_models:\n        print(\"Found Previous Snapshot\")\n        print(previous_models)\n    #
+          mar_files = [ file.rsplit(\".\", 1)[0]\n    #     for file in os.listdir(model_store)\n    #     if
+          file.lower().endswith(\".mar\")\n    # ]\n\n    if model_version in previous_models.get(\"models\",
+          {}).get(model_name, {}):\n        replace_mode = True\n    else:\n        replace_mode
+          = False\n\n    model_snapshot = {\n        \"name\": \"startup.cfg\",\n        \"modelCount\":
+          previous_models.get(\"modelCount\", 0) + (1 if not replace_mode else 0),\n        \"models\":
+          previous_models.get(\"models\", {}) \n    }\n\n    model_dict = model_snapshot[\"models\"].setdefault(model_name,
+          {})\n    if is_default:\n        print(\"Setting Default Model to\", model_version)\n        for
+          model_version_dict in model_snapshot[\"models\"][model_name].values():\n            model_version_dict[\"defaultVersion\"]
+          = False # Reset all to false since I am the new default\n    else:\n        print(\"Default
+          model unchanged\")\n\n    model_dict[model_version] = {\n        \"defaultVersion\":
+          is_default,\n        \"marName\": mar_file,\n        \"minWorkers\": workers_count,\n        \"maxWorkers\":
+          workers_max,\n        \"batchSize\": batch_size,\n        \"maxBatchDelay\":
+          5000,\n        \"responseTimeout\": timeout,\n    }\n\n    config_spec =
+          {\n        \"inference_address\": \"http://0.0.0.0:8085\",\n        \"management_address\":
+          \"http://0.0.0.0:8085\",\n        \"metrics_address\": \"http://0.0.0.0:8082\",\n        \"enable_metrics_api\":
+          True,\n        \"metrics_format\": \"prometheus\",\n        \"number_of_netty_threads\":
+          threads_count,\n        \"job_queue_size\": job_queue_size,\n        \"model_store\":
+          \"/mnt/models/model-store\",\n        \"model_snapshot\": json.dumps(model_snapshot),\n        \"install_py_dep_per_model\":
+          install_dependencies,\n    }\n\n    print(\"Saving config to\", config_path)\n    with
+          open(config_path, \"w\", encoding=''utf-8'') as f:\n        for key, val
+          in config_spec.items():\n            if isinstance(val, (set, tuple)):\n                val
+          = list(val)\n            if isinstance(val, (bool, dict, list)):\n                val
+          = json.dumps(val)\n            s = \"{}={}\".format(key, val)\n            print(s)\n            f.write(s
+          + \"\\n\")\n        f.write(\"# AutoGenerated by KFP.\" \"{{workflow.name}}\")\n\ndef
+          _deserialize_bool(s) -> bool:\n    from distutils.util import strtobool\n    return
+          strtobool(s) == 1\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Create
+          mar config'', description='''')\n_parser.add_argument(\"--experiment-name\",
+          dest=\"experiment_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--root-path\",
+          dest=\"root_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--mar-file\",
+          dest=\"mar_file\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-name\",
+          dest=\"model_name\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-version\",
+          dest=\"model_version\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--threads-count\",
+          dest=\"threads_count\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--job-queue-size\",
+          dest=\"job_queue_size\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--install-dependencies\",
+          dest=\"install_dependencies\", type=_deserialize_bool, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--is-default\",
+          dest=\"is_default\", type=_deserialize_bool, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--workers-count\",
+          dest=\"workers_count\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--workers-max\",
+          dest=\"workers_max\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--batch-size\",
+          dest=\"batch_size\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--timeout\",
+          dest=\"timeout\", type=int, required=False, default=argparse.SUPPRESS)\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = create_mar_config(**_parsed_args)\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "experiment_name", "type":
+          "String"}, {"name": "root_path", "type": "String"}, {"name": "mar_file",
+          "type": "String"}, {"default": "", "name": "model_name", "optional": true,
+          "type": "String"}, {"default": "1.0", "name": "model_version", "optional":
+          true, "type": "String"}, {"default": "4", "name": "threads_count", "optional":
+          true, "type": "Integer"}, {"default": "10", "name": "job_queue_size", "optional":
+          true, "type": "Integer"}, {"default": "True", "name": "install_dependencies",
+          "optional": true, "type": "Boolean"}, {"default": "True", "name": "is_default",
+          "optional": true, "type": "Boolean"}, {"default": "1", "name": "workers_count",
+          "optional": true, "type": "Integer"}, {"default": "5", "name": "workers_max",
+          "optional": true, "type": "Integer"}, {"default": "1", "name": "batch_size",
+          "optional": true, "type": "Integer"}, {"default": "120", "name": "timeout",
+          "optional": true, "type": "Integer"}], "name": "Create mar config"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"batch_size": "{{inputs.parameters.model_serve_batch_size}}",
+          "experiment_name": "{{inputs.parameters.experiment_name}}", "install_dependencies":
+          "{{inputs.parameters.model_serve_install_dependencies}}", "is_default":
+          "{{inputs.parameters.model_serve_is_default}}", "job_queue_size": "{{inputs.parameters.model_serve_queue_size}}",
+          "mar_file": "{{inputs.parameters.dataset_name}}", "model_name": "{{inputs.parameters.model_serve_name}}",
+          "model_version": "{{inputs.parameters.model_version}}", "root_path": "/store",
+          "threads_count": "{{inputs.parameters.model_serve_threads_count}}", "timeout":
+          "{{inputs.parameters.model_serve_timeout}}", "workers_count": "{{inputs.parameters.model_serve_workers}}",
+          "workers_max": "{{inputs.parameters.model_serve_workers_max}}"}'}
+    volumes:
+    - name: volume-bind
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.volume_name}}'}
+  - name: end-to-end-hugging-face-topic-classifier-serving
+    inputs:
+      parameters:
+      - {name: additional_requirements}
+      - {name: dataset_name}
+      - {name: experiment_name}
+      - {name: model_serve_batch_size}
+      - {name: model_serve_install_dependencies}
+      - {name: model_serve_is_default}
+      - {name: model_serve_name}
+      - {name: model_serve_queue_size}
+      - {name: model_serve_threads_count}
+      - {name: model_serve_timeout}
+      - {name: model_serve_workers}
+      - {name: model_serve_workers_max}
+      - {name: model_version}
+      - {name: randomize_service_suffix}
+      - {name: use_seed}
+      - {name: volume_name}
+    dag:
+      tasks:
+      - name: create-handler
+        template: create-handler
+        arguments:
+          parameters:
+          - {name: additional_requirements, value: '{{inputs.parameters.additional_requirements}}'}
+          - {name: experiment_name, value: '{{inputs.parameters.experiment_name}}'}
+          - {name: volume_name, value: '{{inputs.parameters.volume_name}}'}
+      - name: create-mar-config
+        template: create-mar-config
+        arguments:
+          parameters:
+          - {name: dataset_name, value: '{{inputs.parameters.dataset_name}}'}
+          - {name: experiment_name, value: '{{inputs.parameters.experiment_name}}'}
+          - {name: model_serve_batch_size, value: '{{inputs.parameters.model_serve_batch_size}}'}
+          - {name: model_serve_install_dependencies, value: '{{inputs.parameters.model_serve_install_dependencies}}'}
+          - {name: model_serve_is_default, value: '{{inputs.parameters.model_serve_is_default}}'}
+          - {name: model_serve_name, value: '{{inputs.parameters.model_serve_name}}'}
+          - {name: model_serve_queue_size, value: '{{inputs.parameters.model_serve_queue_size}}'}
+          - {name: model_serve_threads_count, value: '{{inputs.parameters.model_serve_threads_count}}'}
+          - {name: model_serve_timeout, value: '{{inputs.parameters.model_serve_timeout}}'}
+          - {name: model_serve_workers, value: '{{inputs.parameters.model_serve_workers}}'}
+          - {name: model_serve_workers_max, value: '{{inputs.parameters.model_serve_workers_max}}'}
+          - {name: model_version, value: '{{inputs.parameters.model_version}}'}
+          - {name: volume_name, value: '{{inputs.parameters.volume_name}}'}
+      - name: generate-random
+        template: generate-random
+        arguments:
+          parameters:
+          - {name: randomize_service_suffix, value: '{{inputs.parameters.randomize_service_suffix}}'}
+      - name: generate-random-2
+        template: generate-random-2
+        arguments:
+          parameters:
+          - {name: use_seed, value: '{{inputs.parameters.use_seed}}'}
+      - name: get-mar-required-files
+        template: get-mar-required-files
+        arguments:
+          parameters:
+          - {name: dataset_name, value: '{{inputs.parameters.dataset_name}}'}
+          - {name: experiment_name, value: '{{inputs.parameters.experiment_name}}'}
+      - name: huggingface-to-mar-file
+        template: huggingface-to-mar-file
+        dependencies: [create-handler, get-mar-required-files]
+        arguments:
+          parameters:
+          - {name: create-handler-handler_path, value: '{{tasks.create-handler.outputs.parameters.create-handler-handler_path}}'}
+          - {name: create-handler-requirements_path, value: '{{tasks.create-handler.outputs.parameters.create-handler-requirements_path}}'}
+          - {name: create-handler-temp_path, value: '{{tasks.create-handler.outputs.parameters.create-handler-temp_path}}'}
+          - {name: dataset_name, value: '{{inputs.parameters.dataset_name}}'}
+          - {name: get-mar-required-files-extra_files, value: '{{tasks.get-mar-required-files.outputs.parameters.get-mar-required-files-extra_files}}'}
+          - {name: get-mar-required-files-model_path, value: '{{tasks.get-mar-required-files.outputs.parameters.get-mar-required-files-model_path}}'}
+          - {name: model_version, value: '{{inputs.parameters.model_version}}'}
+          - {name: volume_name, value: '{{inputs.parameters.volume_name}}'}
+      - name: move-mar-model
+        template: move-mar-model
+        dependencies: [create-handler, get-mar-required-files, huggingface-to-mar-file]
+        arguments:
+          parameters:
+          - {name: create-handler-temp_path, value: '{{tasks.create-handler.outputs.parameters.create-handler-temp_path}}'}
+          - {name: dataset_name, value: '{{inputs.parameters.dataset_name}}'}
+          - {name: experiment_name, value: '{{inputs.parameters.experiment_name}}'}
+          - {name: volume_name, value: '{{inputs.parameters.volume_name}}'}
+      - name: sanitize-service-name
+        template: sanitize-service-name
+        dependencies: [generate-random]
+        arguments:
+          parameters:
+          - {name: experiment_name, value: '{{inputs.parameters.experiment_name}}'}
+          - {name: generate-random-Output, value: '{{tasks.generate-random.outputs.parameters.generate-random-Output}}'}
+      - name: serve-a-model-with-kserve
+        template: serve-a-model-with-kserve
+        dependencies: [create-mar-config, generate-random-2, move-mar-model, sanitize-service-name]
+        arguments:
+          parameters:
+          - {name: experiment_name, value: '{{inputs.parameters.experiment_name}}'}
+          - {name: generate-random-2-Output, value: '{{tasks.generate-random-2.outputs.parameters.generate-random-2-Output}}'}
+          - {name: sanitize-service-name-Output, value: '{{tasks.sanitize-service-name.outputs.parameters.sanitize-service-name-Output}}'}
+          - {name: volume_name, value: '{{inputs.parameters.volume_name}}'}
+  - name: generate-random
+    container:
+      args: [--randomize-service-suffix, '{{inputs.parameters.randomize_service_suffix}}',
+        '----output-paths', /tmp/outputs/Output/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def generate_random(randomize_service_suffix):
+            if not randomize_service_suffix: # No need to generate random
+                return ""
+
+            from uuid import uuid4
+            return uuid4().hex[:7]
+
+        def _deserialize_bool(s) -> bool:
+            from distutils.util import strtobool
+            return strtobool(s) == 1
 
         def _serialize_str(str_value: str) -> str:
             if not isinstance(str_value, str):
@@ -56,14 +624,13 @@ spec:
             return str_value
 
         import argparse
-        _parser = argparse.ArgumentParser(prog='Generate inference service name', description='')
-        _parser.add_argument("--dataset-name", dest="dataset_name", type=str, required=True, default=argparse.SUPPRESS)
-        _parser.add_argument("--experiment-name", dest="experiment_name", type=str, required=True, default=argparse.SUPPRESS)
+        _parser = argparse.ArgumentParser(prog='Generate random', description='')
+        _parser.add_argument("--randomize-service-suffix", dest="randomize_service_suffix", type=_deserialize_bool, required=True, default=argparse.SUPPRESS)
         _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
         _parsed_args = vars(_parser.parse_args())
         _output_files = _parsed_args.pop("_output_paths", [])
 
-        _outputs = generate_inference_service_name(**_parsed_args)
+        _outputs = generate_random(**_parsed_args)
 
         _outputs = [_outputs]
 
@@ -83,41 +650,461 @@ spec:
       image: python:3.7
     inputs:
       parameters:
-      - {name: dataset_name}
-      - {name: experiment_name}
+      - {name: randomize_service_suffix}
     outputs:
       parameters:
-      - name: generate-inference-service-name-Output
+      - name: generate-random-Output
         valueFrom: {path: /tmp/outputs/Output/data}
       artifacts:
-      - {name: generate-inference-service-name-Output, path: /tmp/outputs/Output/data}
+      - {name: generate-random-Output, path: /tmp/outputs/Output/data}
     metadata:
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
         pipelines.kubeflow.org/pipeline-sdk-type: kfp
         pipelines.kubeflow.org/enable_caching: "true"
       annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
-          {"args": ["--dataset-name", {"inputValue": "dataset_name"}, "--experiment-name",
-          {"inputValue": "experiment_name"}, "----output-paths", {"outputPath": "Output"}],
-          "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" >
-          \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def generate_inference_service_name(dataset_name,
-          experiment_name):\n    return \"{}-{}\".format(dataset_name, experiment_name).lower().replace(''_'',
-          ''-'')\n\ndef _serialize_str(str_value: str) -> str:\n    if not isinstance(str_value,
+          {"args": ["--randomize-service-suffix", {"inputValue": "randomize_service_suffix"},
+          "----output-paths", {"outputPath": "Output"}], "command": ["sh", "-ec",
+          "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
+          -u \"$program_path\" \"$@\"\n", "def generate_random(randomize_service_suffix):\n    if
+          not randomize_service_suffix: # No need to generate random\n        return
+          \"\"\n\n    from uuid import uuid4\n    return uuid4().hex[:7]\n\ndef _deserialize_bool(s)
+          -> bool:\n    from distutils.util import strtobool\n    return strtobool(s)
+          == 1\n\ndef _serialize_str(str_value: str) -> str:\n    if not isinstance(str_value,
           str):\n        raise TypeError(''Value \"{}\" has type \"{}\" instead of
           str.''.format(\n            str(str_value), str(type(str_value))))\n    return
           str_value\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Generate
-          inference service name'', description='''')\n_parser.add_argument(\"--dataset-name\",
-          dest=\"dataset_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--experiment-name\",
-          dest=\"experiment_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
-          dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
-          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = generate_inference_service_name(**_parsed_args)\n\n_outputs
+          random'', description='''')\n_parser.add_argument(\"--randomize-service-suffix\",
+          dest=\"randomize_service_suffix\", type=_deserialize_bool, required=True,
+          default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\", dest=\"_output_paths\",
+          type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = generate_random(**_parsed_args)\n\n_outputs
           = [_outputs]\n\n_output_serializers = [\n    _serialize_str,\n\n]\n\nimport
           os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
           OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
-          "image": "python:3.7"}}, "inputs": [{"name": "dataset_name"}, {"name": "experiment_name"}],
-          "name": "Generate inference service name", "outputs": [{"name": "Output",
-          "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{}', pipelines.kubeflow.org/arguments.parameters: '{"dataset_name":
-          "{{inputs.parameters.dataset_name}}", "experiment_name": "{{inputs.parameters.experiment_name}}"}'}
+          "image": "python:3.7"}}, "inputs": [{"name": "randomize_service_suffix",
+          "type": "Boolean"}], "name": "Generate random", "outputs": [{"name": "Output",
+          "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{}', pipelines.kubeflow.org/arguments.parameters: '{"randomize_service_suffix":
+          "{{inputs.parameters.randomize_service_suffix}}"}', pipelines.kubeflow.org/max_cache_staleness: P0D}
+  - name: generate-random-2
+    container:
+      args: [--randomize-service-suffix, '{{inputs.parameters.use_seed}}', '----output-paths',
+        /tmp/outputs/Output/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def generate_random(randomize_service_suffix):
+            if not randomize_service_suffix: # No need to generate random
+                return ""
+
+            from uuid import uuid4
+            return uuid4().hex[:7]
+
+        def _deserialize_bool(s) -> bool:
+            from distutils.util import strtobool
+            return strtobool(s) == 1
+
+        def _serialize_str(str_value: str) -> str:
+            if not isinstance(str_value, str):
+                raise TypeError('Value "{}" has type "{}" instead of str.'.format(
+                    str(str_value), str(type(str_value))))
+            return str_value
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Generate random', description='')
+        _parser.add_argument("--randomize-service-suffix", dest="randomize_service_suffix", type=_deserialize_bool, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = generate_random(**_parsed_args)
+
+        _outputs = [_outputs]
+
+        _output_serializers = [
+            _serialize_str,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: python:3.7
+    inputs:
+      parameters:
+      - {name: use_seed}
+    outputs:
+      parameters:
+      - name: generate-random-2-Output
+        valueFrom: {path: /tmp/outputs/Output/data}
+      artifacts:
+      - {name: generate-random-2-Output, path: /tmp/outputs/Output/data}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--randomize-service-suffix", {"inputValue": "randomize_service_suffix"},
+          "----output-paths", {"outputPath": "Output"}], "command": ["sh", "-ec",
+          "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
+          -u \"$program_path\" \"$@\"\n", "def generate_random(randomize_service_suffix):\n    if
+          not randomize_service_suffix: # No need to generate random\n        return
+          \"\"\n\n    from uuid import uuid4\n    return uuid4().hex[:7]\n\ndef _deserialize_bool(s)
+          -> bool:\n    from distutils.util import strtobool\n    return strtobool(s)
+          == 1\n\ndef _serialize_str(str_value: str) -> str:\n    if not isinstance(str_value,
+          str):\n        raise TypeError(''Value \"{}\" has type \"{}\" instead of
+          str.''.format(\n            str(str_value), str(type(str_value))))\n    return
+          str_value\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Generate
+          random'', description='''')\n_parser.add_argument(\"--randomize-service-suffix\",
+          dest=\"randomize_service_suffix\", type=_deserialize_bool, required=True,
+          default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\", dest=\"_output_paths\",
+          type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = generate_random(**_parsed_args)\n\n_outputs
+          = [_outputs]\n\n_output_serializers = [\n    _serialize_str,\n\n]\n\nimport
+          os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "randomize_service_suffix",
+          "type": "Boolean"}], "name": "Generate random", "outputs": [{"name": "Output",
+          "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{}', pipelines.kubeflow.org/arguments.parameters: '{"randomize_service_suffix":
+          "{{inputs.parameters.use_seed}}"}', pipelines.kubeflow.org/max_cache_staleness: P0D}
+  - name: get-mar-required-files
+    container:
+      args: [--experiment-name, '{{inputs.parameters.experiment_name}}', --dataset-name,
+        '{{inputs.parameters.dataset_name}}', --root-path, /store, '----output-paths',
+        /tmp/outputs/model_path/data, /tmp/outputs/extra_files/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def get_mar_required_files(experiment_name, dataset_name, root_path):
+            import os
+            model_folder = os.path.join(root_path, experiment_name, "outputs", dataset_name)
+            model = os.path.join(model_folder, "pytorch_model.bin")
+            vocab = os.path.join(model_folder, "vocab.txt")
+            config = os.path.join(model_folder, "config.json")
+
+            return model, "{},{}".format(vocab, config) # type: ignore
+
+        def _serialize_str(str_value: str) -> str:
+            if not isinstance(str_value, str):
+                raise TypeError('Value "{}" has type "{}" instead of str.'.format(
+                    str(str_value), str(type(str_value))))
+            return str_value
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Get mar required files', description='')
+        _parser.add_argument("--experiment-name", dest="experiment_name", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--dataset-name", dest="dataset_name", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--root-path", dest="root_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=2)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = get_mar_required_files(**_parsed_args)
+
+        _output_serializers = [
+            _serialize_str,
+            _serialize_str,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: python:3.7
+    inputs:
+      parameters:
+      - {name: dataset_name}
+      - {name: experiment_name}
+    outputs:
+      parameters:
+      - name: get-mar-required-files-extra_files
+        valueFrom: {path: /tmp/outputs/extra_files/data}
+      - name: get-mar-required-files-model_path
+        valueFrom: {path: /tmp/outputs/model_path/data}
+      artifacts:
+      - {name: get-mar-required-files-extra_files, path: /tmp/outputs/extra_files/data}
+      - {name: get-mar-required-files-model_path, path: /tmp/outputs/model_path/data}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--experiment-name", {"inputValue": "experiment_name"}, "--dataset-name",
+          {"inputValue": "dataset_name"}, "--root-path", {"inputValue": "root_path"},
+          "----output-paths", {"outputPath": "model_path"}, {"outputPath": "extra_files"}],
+          "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" >
+          \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def get_mar_required_files(experiment_name,
+          dataset_name, root_path):\n    import os\n    model_folder = os.path.join(root_path,
+          experiment_name, \"outputs\", dataset_name)\n    model = os.path.join(model_folder,
+          \"pytorch_model.bin\")\n    vocab = os.path.join(model_folder, \"vocab.txt\")\n    config
+          = os.path.join(model_folder, \"config.json\")\n\n    return model, \"{},{}\".format(vocab,
+          config) # type: ignore\n\ndef _serialize_str(str_value: str) -> str:\n    if
+          not isinstance(str_value, str):\n        raise TypeError(''Value \"{}\"
+          has type \"{}\" instead of str.''.format(\n            str(str_value), str(type(str_value))))\n    return
+          str_value\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Get
+          mar required files'', description='''')\n_parser.add_argument(\"--experiment-name\",
+          dest=\"experiment_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--dataset-name\",
+          dest=\"dataset_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--root-path\",
+          dest=\"root_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=2)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = get_mar_required_files(**_parsed_args)\n\n_output_serializers
+          = [\n    _serialize_str,\n    _serialize_str,\n\n]\n\nimport os\nfor idx,
+          output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "experiment_name", "type":
+          "String"}, {"name": "dataset_name", "type": "String"}, {"name": "root_path",
+          "type": "String"}], "name": "Get mar required files", "outputs": [{"name":
+          "model_path", "type": "String"}, {"name": "extra_files", "type": "String"}]}',
+        pipelines.kubeflow.org/component_ref: '{}', pipelines.kubeflow.org/arguments.parameters: '{"dataset_name":
+          "{{inputs.parameters.dataset_name}}", "experiment_name": "{{inputs.parameters.experiment_name}}",
+          "root_path": "/store"}'}
+  - name: huggingface-to-mar-file
+    container:
+      args: [--model-name, '{{inputs.parameters.dataset_name}}', --version, '{{inputs.parameters.model_version}}',
+        --export-path, '{{inputs.parameters.create-handler-temp_path}}', --serialized-file,
+        '{{inputs.parameters.get-mar-required-files-model_path}}', --extra-files,
+        '{{inputs.parameters.get-mar-required-files-extra_files}}', --handler, '{{inputs.parameters.create-handler-handler_path}}',
+        --requirements-file, '{{inputs.parameters.create-handler-requirements_path}}',
+        --force]
+      command: [sh, -c, (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet
+          --no-warn-script-location 'torch-model-archiver==0.6.0' || PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location 'torch-model-archiver==0.6.0'
+          --user) && "$0" "$@", torch-model-archiver]
+      image: python:slim-buster
+      volumeMounts:
+      - {mountPath: /store, name: volume-bind}
+    inputs:
+      parameters:
+      - {name: create-handler-handler_path}
+      - {name: create-handler-requirements_path}
+      - {name: create-handler-temp_path}
+      - {name: dataset_name}
+      - {name: get-mar-required-files-extra_files}
+      - {name: get-mar-required-files-model_path}
+      - {name: model_version}
+      - {name: volume_name}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Convert
+          HuggingFace model to MAR file", "implementation": {"container": {"args":
+          ["--model-name", {"inputValue": "Model Name"}, "--version", {"inputValue":
+          "Model Version"}, "--export-path", {"inputValue": "Export Path"}, "--serialized-file",
+          {"inputValue": "Model File"}, "--extra-files", {"inputValue": "Extra Files"},
+          "--handler", {"inputValue": "Handler File"}, "--requirements-file", {"inputValue":
+          "Requirements File"}, "--force"], "command": ["sh", "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''torch-model-archiver==0.6.0''
+          || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+          ''torch-model-archiver==0.6.0'' --user) && \"$0\" \"$@\"", "torch-model-archiver"],
+          "image": "python:slim-buster"}}, "inputs": [{"description": "The name of
+          the model to train.", "name": "Model Name", "type": "String"}, {"description":
+          "The version of the model to train.", "name": "Model Version", "type": "String"},
+          {"description": "The path to the pytorch_model.bin.", "name": "Model File",
+          "type": "String"}, {"description": "A comma separated list of files to be
+          copied to the model store.", "name": "Extra Files", "type": "String"}, {"description":
+          "The path to the handler file.", "name": "Handler File", "type": "String"},
+          {"description": "The path to the requirements.txt file.", "name": "Requirements
+          File", "type": "String"}, {"description": "The path to the MAR file.", "name":
+          "Export Path", "type": "String"}], "name": "HuggingFace To MAR File"}',
+        pipelines.kubeflow.org/component_ref: '{"digest": "371b518426dbd9cdb8061e413c2a0d72a6f9a7f2b27af10e4bec9c09b02def37",
+          "url": "src/pipelines/yamls/Components/hf_make_mar_file.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Export
+          Path": "{{inputs.parameters.create-handler-temp_path}}", "Extra Files":
+          "{{inputs.parameters.get-mar-required-files-extra_files}}", "Handler File":
+          "{{inputs.parameters.create-handler-handler_path}}", "Model File": "{{inputs.parameters.get-mar-required-files-model_path}}",
+          "Model Name": "{{inputs.parameters.dataset_name}}", "Model Version": "{{inputs.parameters.model_version}}",
+          "Requirements File": "{{inputs.parameters.create-handler-requirements_path}}"}',
+        pipelines.kubeflow.org/max_cache_staleness: P0D}
+    volumes:
+    - name: volume-bind
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.volume_name}}'}
+  - name: move-mar-model
+    container:
+      args: [--model-name, '{{inputs.parameters.dataset_name}}', --experiment-name,
+        '{{inputs.parameters.experiment_name}}', --root-path, /store, --temp-path,
+        '{{inputs.parameters.create-handler-temp_path}}']
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - "def move_mar_model(model_name, experiment_name, root_path, temp_path): #\
+        \ Can be replaced with text component\n    import os\n    import shutil\n\n\
+        \    mar_name = \"{}.mar\".format(model_name)\n    model_store_path = os.path.join(root_path,\
+        \ experiment_name, \"model-store\")\n    mar_model = os.path.join(temp_path,\
+        \ mar_name)\n\n    if os.path.exists(mar_model):\n        os.makedirs(model_store_path,\
+        \ exist_ok=True)\n        move_path = os.path.join(root_path, model_store_path)\n\
+        \        file_path = os.path.join(move_path, mar_name)\n        if os.path.exists(file_path):\n\
+        \            os.remove(file_path)\n        shutil.move(mar_model, move_path)\n\
+        \    else:\n        raise Exception(\"Model not found at\" + mar_model)  \
+        \      \n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Move mar\
+        \ model', description='')\n_parser.add_argument(\"--model-name\", dest=\"\
+        model_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+        --experiment-name\", dest=\"experiment_name\", type=str, required=True, default=argparse.SUPPRESS)\n\
+        _parser.add_argument(\"--root-path\", dest=\"root_path\", type=str, required=True,\
+        \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--temp-path\", dest=\"\
+        temp_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args\
+        \ = vars(_parser.parse_args())\n\n_outputs = move_mar_model(**_parsed_args)\n"
+      image: python:3.7
+      volumeMounts:
+      - {mountPath: /store, name: volume-bind}
+    inputs:
+      parameters:
+      - {name: create-handler-temp_path}
+      - {name: dataset_name}
+      - {name: experiment_name}
+      - {name: volume_name}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--model-name", {"inputValue": "model_name"}, "--experiment-name",
+          {"inputValue": "experiment_name"}, "--root-path", {"inputValue": "root_path"},
+          "--temp-path", {"inputValue": "temp_path"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf
+          \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+          "def move_mar_model(model_name, experiment_name, root_path, temp_path):
+          # Can be replaced with text component\n    import os\n    import shutil\n\n    mar_name
+          = \"{}.mar\".format(model_name)\n    model_store_path = os.path.join(root_path,
+          experiment_name, \"model-store\")\n    mar_model = os.path.join(temp_path,
+          mar_name)\n\n    if os.path.exists(mar_model):\n        os.makedirs(model_store_path,
+          exist_ok=True)\n        move_path = os.path.join(root_path, model_store_path)\n        file_path
+          = os.path.join(move_path, mar_name)\n        if os.path.exists(file_path):\n            os.remove(file_path)\n        shutil.move(mar_model,
+          move_path)\n    else:\n        raise Exception(\"Model not found at\" +
+          mar_model)        \n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Move
+          mar model'', description='''')\n_parser.add_argument(\"--model-name\", dest=\"model_name\",
+          type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--experiment-name\",
+          dest=\"experiment_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--root-path\",
+          dest=\"root_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--temp-path\",
+          dest=\"temp_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = move_mar_model(**_parsed_args)\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "model_name", "type": "String"},
+          {"name": "experiment_name", "type": "String"}, {"name": "root_path", "type":
+          "String"}, {"name": "temp_path", "type": "String"}], "name": "Move mar model"}',
+        pipelines.kubeflow.org/component_ref: '{}', pipelines.kubeflow.org/arguments.parameters: '{"experiment_name":
+          "{{inputs.parameters.experiment_name}}", "model_name": "{{inputs.parameters.dataset_name}}",
+          "root_path": "/store", "temp_path": "{{inputs.parameters.create-handler-temp_path}}"}',
+        pipelines.kubeflow.org/max_cache_staleness: P0D}
+    volumes:
+    - name: volume-bind
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.volume_name}}'}
+  - name: sanitize-service-name
+    container:
+      args: [--name, '{{inputs.parameters.experiment_name}}', --extra, '{{inputs.parameters.generate-random-Output}}',
+        '----output-paths', /tmp/outputs/Output/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def sanitize_service_name(name, extra):
+            print("Sanitizing", name)
+            if extra:
+                name += '-' + extra[:5]
+            s = name.lower().replace(" ", "_").replace(".", "-").replace("_", "-")
+            print("Sanitized", s)
+            return s
+
+        def _serialize_str(str_value: str) -> str:
+            if not isinstance(str_value, str):
+                raise TypeError('Value "{}" has type "{}" instead of str.'.format(
+                    str(str_value), str(type(str_value))))
+            return str_value
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Sanitize service name', description='')
+        _parser.add_argument("--name", dest="name", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--extra", dest="extra", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = sanitize_service_name(**_parsed_args)
+
+        _outputs = [_outputs]
+
+        _output_serializers = [
+            _serialize_str,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: python:3.7
+    inputs:
+      parameters:
+      - {name: experiment_name}
+      - {name: generate-random-Output}
+    outputs:
+      parameters:
+      - name: sanitize-service-name-Output
+        valueFrom: {path: /tmp/outputs/Output/data}
+      artifacts:
+      - {name: sanitize-service-name-Output, path: /tmp/outputs/Output/data}
+    metadata:
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.12
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--name", {"inputValue": "name"}, "--extra", {"inputValue": "extra"},
+          "----output-paths", {"outputPath": "Output"}], "command": ["sh", "-ec",
+          "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
+          -u \"$program_path\" \"$@\"\n", "def sanitize_service_name(name, extra):\n    print(\"Sanitizing\",
+          name)\n    if extra:\n        name += ''-'' + extra[:5]\n    s = name.lower().replace(\"
+          \", \"_\").replace(\".\", \"-\").replace(\"_\", \"-\")\n    print(\"Sanitized\",
+          s)\n    return s\n\ndef _serialize_str(str_value: str) -> str:\n    if not
+          isinstance(str_value, str):\n        raise TypeError(''Value \"{}\" has
+          type \"{}\" instead of str.''.format(\n            str(str_value), str(type(str_value))))\n    return
+          str_value\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Sanitize
+          service name'', description='''')\n_parser.add_argument(\"--name\", dest=\"name\",
+          type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--extra\",
+          dest=\"extra\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = sanitize_service_name(**_parsed_args)\n\n_outputs
+          = [_outputs]\n\n_output_serializers = [\n    _serialize_str,\n\n]\n\nimport
+          os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "name", "type": "String"},
+          {"name": "extra", "type": "String"}], "name": "Sanitize service name", "outputs":
+          [{"name": "Output", "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"extra": "{{inputs.parameters.generate-random-Output}}",
+          "name": "{{inputs.parameters.experiment_name}}"}'}
   - name: serve-a-model-with-kserve
     container:
       args:
@@ -152,12 +1139,15 @@ spec:
         metadata:
           annotations:
             sidecar.istio.io/inject: 'false'
-          name: '{{inputs.parameters.generate-inference-service-name-Output}}'
+          name: '{{inputs.parameters.sanitize-service-name-Output}}'
           namespace: '{{workflow.namespace}}'
         spec:
           predictor:
             pytorch:
-              storageUri: pvc://{{inputs.parameters.volume_name}}/{{inputs.parameters.experiment_name}}/outputs/{{inputs.parameters.dataset_name}}
+              env:
+              - name: random_seed
+                value: '{{inputs.parameters.generate-random-2-Output}}'
+              storageUri: pvc://{{inputs.parameters.volume_name}}/{{inputs.parameters.experiment_name}}
       - --watch-timeout
       - '300'
       - --min-replicas
@@ -167,14 +1157,14 @@ spec:
       - --request-timeout
       - '60'
       command: [python]
-      image: quay.io/aipipeline/kserve-component:v0.7.0
+      image: mesosphere/kubeflow:kserve-component-v0.8.0
       volumeMounts:
       - {mountPath: /store, name: volume-bind}
     inputs:
       parameters:
-      - {name: dataset_name}
       - {name: experiment_name}
-      - {name: generate-inference-service-name-Output}
+      - {name: generate-random-2-Output}
+      - {name: sanitize-service-name-Output}
       - {name: volume_name}
     outputs:
       artifacts:
@@ -197,7 +1187,7 @@ spec:
           "InferenceService YAML"}, "--watch-timeout", {"inputValue": "Watch Timeout"},
           "--min-replicas", {"inputValue": "Min Replicas"}, "--max-replicas", {"inputValue":
           "Max Replicas"}, "--request-timeout", {"inputValue": "Request Timeout"}],
-          "command": ["python"], "image": "quay.io/aipipeline/kserve-component:v0.7.0"}},
+          "command": ["python"], "image": "mesosphere/kubeflow:kserve-component-v0.8.0"}},
           "inputs": [{"default": "create", "description": "Action to execute on KServe",
           "name": "Action", "type": "String"}, {"default": "", "description": "Name
           to give to the deployed model", "name": "Model Name", "type": "String"},
@@ -227,17 +1217,18 @@ spec:
           "type": "String"}], "name": "Serve a model with KServe", "outputs": [{"description":
           "Status JSON output of InferenceService", "name": "InferenceService Status",
           "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
-          "cb3f9cdb6d51b05bddf7775e58a3b7351f9c923485fbc09a2c50eb6b281ba87a", "url":
-          "src/pipelines/yamls/Components/kfserve_launcher.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Action":
+          "2ea32af92ed4a25c53b325306be83950623675ea6c9bf4ac4b93592cf8100774", "url":
+          "src/pipelines/yamls/Components/kserve_launcher.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Action":
           "apply", "Autoscaling Target": "0", "Canary Traffic Percent": "100", "Custom
           Model Spec": "{}", "Enable Istio Sidecar": "True", "Framework": "", "InferenceService
           YAML": "apiVersion: serving.kserve.io/v1beta1\nkind: InferenceService\nmetadata:\n  annotations:\n    sidecar.istio.io/inject:
-          ''false''\n  name: ''{{inputs.parameters.generate-inference-service-name-Output}}''\n  namespace:
-          ''{{workflow.namespace}}''\nspec:\n  predictor:\n    pytorch:\n      storageUri:
-          pvc://{{inputs.parameters.volume_name}}/{{inputs.parameters.experiment_name}}/outputs/{{inputs.parameters.dataset_name}}\n",
+          ''false''\n  name: ''{{inputs.parameters.sanitize-service-name-Output}}''\n  namespace:
+          ''{{workflow.namespace}}''\nspec:\n  predictor:\n    pytorch:\n      env:\n      -
+          name: random_seed\n        value: ''{{inputs.parameters.generate-random-2-Output}}''\n      storageUri:
+          pvc://{{inputs.parameters.volume_name}}/{{inputs.parameters.experiment_name}}\n",
           "Max Replicas": "-1", "Min Replicas": "-1", "Model Name": "", "Model URI":
           "", "Namespace": "", "Request Timeout": "60", "Service Account": "", "Watch
-          Timeout": "300"}'}
+          Timeout": "300"}', pipelines.kubeflow.org/max_cache_staleness: P0D}
     volumes:
     - name: volume-bind
       persistentVolumeClaim: {claimName: '{{inputs.parameters.volume_name}}'}
@@ -246,4 +1237,21 @@ spec:
     - {name: experiment_name}
     - {name: volume_name}
     - {name: dataset_name}
+    - {name: model_version, value: '1.0'}
+    - name: randomize_service_suffix
+      value: "False"
+    - name: use_seed
+      value: "True"
+    - {name: additional_requirements, value: '["anltk", "torchserve", "transformers"]'}
+    - {name: model_serve_name, value: ''}
+    - {name: model_serve_threads_count, value: '4'}
+    - {name: model_serve_queue_size, value: '10'}
+    - name: model_serve_install_dependencies
+      value: "True"
+    - name: model_serve_is_default
+      value: "True"
+    - {name: model_serve_workers, value: '1'}
+    - {name: model_serve_workers_max, value: '5'}
+    - {name: model_serve_batch_size, value: '1'}
+    - {name: model_serve_timeout, value: '120'}
   serviceAccountName: pipeline-runner

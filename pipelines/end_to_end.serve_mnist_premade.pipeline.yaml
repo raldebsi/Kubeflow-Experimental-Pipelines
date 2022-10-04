@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: mnist-example-server-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-18T21:56:06.687228',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12, pipelines.kubeflow.org/pipeline_compilation_time: '2022-07-26T17:08:57.846232',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Serves the public MNIST
       torchserve example", "name": "MNIST Example Server"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.12}
@@ -45,12 +45,12 @@ spec:
         apiVersion: serving.kserve.io/v1beta1
         kind: InferenceService
         metadata:
-          name: serve-mnist
+          name: serve-mnist-sy
           namespace: '{{workflow.namespace}}'
         spec:
           predictor:
             pytorch:
-              storageUri: gs://kfserving-examples/models/torchserve/image_classifier
+              storageUri: pvc://ridhwan-pvc-mount/mnist_srv
       - --watch-timeout
       - '300'
       - --min-replicas
@@ -117,10 +117,10 @@ spec:
           "apply", "Autoscaling Target": "0", "Canary Traffic Percent": "100", "Custom
           Model Spec": "{}", "Enable Istio Sidecar": "True", "Framework": "", "InferenceService
           YAML": "apiVersion: serving.kserve.io/v1beta1\nkind: InferenceService\nmetadata:\n  name:
-          serve-mnist\n  namespace: ''{{workflow.namespace}}''\nspec:\n  predictor:\n    pytorch:\n      storageUri:
-          gs://kfserving-examples/models/torchserve/image_classifier\n", "Max Replicas":
-          "-1", "Min Replicas": "-1", "Model Name": "", "Model URI": "", "Namespace":
-          "", "Request Timeout": "60", "Service Account": "", "Watch Timeout": "300"}'}
+          serve-mnist-sy\n  namespace: ''{{workflow.namespace}}''\nspec:\n  predictor:\n    pytorch:\n      storageUri:
+          pvc://ridhwan-pvc-mount/mnist_srv\n", "Max Replicas": "-1", "Min Replicas":
+          "-1", "Model Name": "", "Model URI": "", "Namespace": "", "Request Timeout":
+          "60", "Service Account": "", "Watch Timeout": "300"}', pipelines.kubeflow.org/max_cache_staleness: P0D}
   arguments:
     parameters: []
   serviceAccountName: pipeline-runner
