@@ -212,4 +212,4 @@ def pipeline(experiment_name: str, volume_name: str,
     train_task = volumetrize(train_task)
 
 
-    serve_task = create_serve_task(dataset_name, experiment_name, volume_name).after(train_task)
+    # serve_task = create_serve_task(dataset_name, experiment_name, volume_name).after(train_task)
