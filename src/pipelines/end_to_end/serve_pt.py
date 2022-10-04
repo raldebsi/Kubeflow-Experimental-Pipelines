@@ -82,9 +82,12 @@ def create_mar_config(experiment_name: str, root_path: str, mar_file: str, model
     experiment_path = os.path.join(root_path, experiment_name)
     print("Experiment Path is", experiment_path)
     model_store = os.path.join(experiment_path, "model-store")
-    config_path = os.path.join(experiment_path, "config", "config.properties")
+    config_dir = os.path.join(experiment_path, "config")
+    config_path = os.path.join(config_dir, "config.properties")
 
     previous_models = {}
+
+    os.makedirs(config_dir, exist_ok=True)
 
     if os.path.isfile(config_path):
         with open(config_path, "r", encoding='utf-8') as f:
@@ -242,7 +245,7 @@ def pipeline(experiment_name: str, volume_name: str, dataset_name: str,
     move_model_task = volumetrize(move_model_task)
     move_model_task = move_model_task.after(mar_convert_task).after(get_mar_task)
     cacheless_task(move_model_task)
-
+ 
     # Create Config
     create_config_op = components.func_to_container_op(create_mar_config)
     create_config_task = create_config_op(
